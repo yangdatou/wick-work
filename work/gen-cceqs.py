@@ -321,7 +321,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 tmp = tmp_list[ibra * len(Hbar) + ih]
                 final = tmp if final is None else final + tmp
 
-                if len(tmp.terms) == 0 and ih > 0:
+                if len(tmp.terms) <= 1 and ih > 0:
                     res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
                     break
 
