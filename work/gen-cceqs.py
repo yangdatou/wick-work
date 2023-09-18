@@ -269,6 +269,8 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
 
+    print("Initialization Complete....")
+
     def gen_res_func(ih, ibra):
         h   = Hbar[ih]
         bra = bra_list[ibra]
@@ -285,6 +287,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+    print("rank = %d, size = %d" % (rank, size))
 
     assert len(bra_list) * len(Hbar) <= size
     log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
@@ -296,6 +299,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     log.write(str(tmp))
     tmp_list.append(tmp)
     tmp_list = comm.gather(tmp_list, root=0)
+    comm.Barrier()
 
     if rank == 0:
         res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
