@@ -27,5 +27,5 @@ cd ../wick-main/; export PYTHONPATH=$PWD; cd -;
 export PYTHONPATH=/home/yangjunjie/packages/pyscf/pyscf-main/:$PYTHONPATH;
 export PYTHONUNBUFFERED=TRUE;
 
-python gen-cceqs.py
+time python gen-cceqs.py
 

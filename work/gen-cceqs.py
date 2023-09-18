@@ -233,9 +233,9 @@ def braPNE1(ph_max):
     # Return the entire expression for the operator
     return Expression([term])
 
-def gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4):
+def gen_epcc_eqs(h2e=None, elec_order=2, ph_order=1, hbar_order=4):
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
-    H1p   = one_p("cc_obj.h1p_eff") + two_p("cc_obj.h1p", ["occ", "vir"], ["nm"], norder=True)
+    H1p   = one_p("cc_obj.h1p_eff") + two_p("cc_obj.h1p", ["occ", "vir"], ["nm"])
     H1e1p = ep11("cc_obj.h1e1p", ["occ", "vir"], ["nm"], norder=True)
     H = H1e + H1p + H1e1p
 
@@ -244,8 +244,8 @@ def gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4):
         bra_list = [braE1("occ", "vir")]
 
     elif elec_order == 2:
-        T = E1("amp[0]", ["occ"], ["vir"]) + E2("amp[1]", ["occ"], ["vir"], ["nm"])
-        bra_list = [braE1("occ", "vir"), braE2("occ", "vir")]
+        T = E1("amp[0]", ["occ"], ["vir"]) + E2("amp[1]", ["occ"], ["vir"])
+        bra_list = [braE1("occ", "vir"), braE2("occ", "vir", "occ", "vir")]
 
     else:
         raise Exception("elec_order must be 1 or 2")
@@ -290,5 +290,5 @@ def gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4):
     return res
 
 if __name__ == "__main__":
-    res = gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=4)
+    res = gen_epcc_eqs(elec_order=1, ph_order=1, hbar_order=4)
 
