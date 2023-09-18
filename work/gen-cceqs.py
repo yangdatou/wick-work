@@ -22,6 +22,8 @@ from wick.convenience import (Idx, Sigma, Tensor, FOperator, Term, get_sym, Expr
 from wick.operator import Projector, BOperator, FOperator
 from wick.operator import TensorSym, Tensor, Sigma, normal_ordered
 
+LOG_TMPDIR = os.environ.get("LOG_TMPDIR", "/scratch/global/yangjunjie/")
+
 # Constants
 PYTHON_FILE_TAB = "    "  # Define tab spacing for Python file output
 
@@ -234,6 +236,8 @@ def braPNE1(ph_max):
     return Expression([term])
 
 def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
+    name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
+
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
     H2e   = two_e("cc_obj.h2e", ["occ", "vir"], norder=True, compress=True)
     H1p   = one_p("cc_obj.h1p_eff") + two_p("cc_obj.h1p")
@@ -265,49 +269,59 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
 
-    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
+    def gen_res_func(ih, ibra):
+        h   = Hbar[ih]
+        bra = bra_list[ibra]
 
-    final = None
-    for ih, h in enumerate(Hbar):
-        out = apply_wick(h)
+        out = apply_wick(bra * h)
         out.resolve()
 
         tmp = AExpression(Ex=out)
-        final = tmp if final is None else final + tmp
+        return tmp
 
-        if len(tmp.terms) == 0 and ih > 0:
-            res += "\n" + gen_einsum_fxn(final, "get_ene") + "\n"
-            break
+    tmp_list = []
 
-        if ih == hbar_order:
-            raise Exception("energy did not converge")
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
 
-    for ibra, bra in enumerate(bra_list):
-        final = None
-        for ih, h in enumerate(Hbar):
-            out = apply_wick(bra * h)
-            out.resolve()
+    assert len(bra_list) * len(Hbar) <= size
+    log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
+    log.write("rank = %d, size = %d\n" % (rank, size))
+    log.write("ibra = %d, ih = %d\n" % (rank // len(Hbar), rank % len(Hbar)))
 
-            tmp = AExpression(Ex=out)
-            final = tmp if final is None else final + tmp
+    tmp = gen_res_func(rank // len(Hbar), rank % len(Hbar))
+    log.write("tmp = \n")
+    log.write(str(tmp))
+    tmp_list.append(tmp)
+    tmp_list = comm.gather(tmp_list, root=0)
 
-            if len(tmp.terms) == 0 and ih > 0:
-                res += "\n" + gen_einsum_fxn(final, f"get_res_bra_{ibra}") + "\n"
-                break
+    if rank == 0:
+        res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
 
-            if ih == hbar_order:
-                res += "\n" + gen_einsum_fxn(final, f"get_res_bra_{ibra}") + "\n"
-                print(res)
-                raise Exception("bra %d did not converge" % ibra)
+        for ibra, bra in enumerate(bra_list):
+            final = None
 
-    print(res, "\n")
-    name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
+            for ih, h in enumerate(Hbar):
+                tmp = tmp_list[ibra * len(Hbar) + ih]
+                final = tmp if final is None else final + tmp
 
-    with open(name + ".py", "w") as f:
-        f.write(res)
+                if len(tmp.terms) == 0 and ih > 0:
+                    res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
+                    break
 
-    return res
+                if ih == hbar_order:
+                    raise Exception("bra %d did not converge" % ibra)
+
+        print(res, "\n")
+        name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
+
+        with open(name + ".py", "w") as f:
+            f.write(res)
+
 
 if __name__ == "__main__":
-    res = gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4, with_h2e=True)
+    gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=5, with_h2e=True)
+    gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=5, with_h2e=True)
 
