@@ -236,8 +236,14 @@ def braPNE1(ph_max):
     return Expression([term])
 
 def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    print("rank = %2d, size = %2d" % (rank, size))
+
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
-    log = sys.stdout
+    log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
 
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
     H2e   = two_e("cc_obj.h2e", ["occ", "vir"], norder=True, compress=True)
@@ -276,6 +282,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         bra_list.append(braPNE1(i))
 
     log.write("Finishing Initialization....\n")
+    comm.Barrier()
 
     def gen_res_func(ih, ibra):
         log.write("ibra = %d, ih = %d\n" % (ibra, ih))
@@ -289,32 +296,44 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
 
         log.write("tmp = \n")
         log.write(str(tmp))
+        log.write("\n")
         return tmp
 
-    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
+    tmp_list = []
+    assert len(bra_list) * len(Hbar) <= size
+    log.write("rank = %d, size = %d\n" % (rank, size))
+    log.write("ibra = %d, ih = %d\n" % (rank // len(Hbar), rank % len(Hbar)))
 
-    for ibra, bra in enumerate(bra_list):
-        final = None
+    tmp = gen_res_func(rank // len(Hbar), rank % len(Hbar))
+    log.write("tmp = \n")
+    log.write(str(tmp))
+    tmp_list.append(tmp)
+    tmp_list = comm.gather(tmp_list, root=0)
+    comm.Barrier()
 
-        for ih, h in enumerate(Hbar):
-            tmp = gen_res_func(ih, ibra)
-            final = tmp if final is None else final + tmp
+    if rank == 0:
+        res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
 
-            if len(tmp.terms) <= 1 and ih > 0:
-                res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
-                break
+        for ibra, bra in enumerate(bra_list):
+            final = None
 
-            if ih == hbar_order:
-                raise Exception("bra %d did not converge" % ibra)
+            for ih, h in enumerate(Hbar):
+                tmp = tmp_list[ibra * len(Hbar) + ih]
+                final = tmp if final is None else final + tmp
 
-    log.write("Finishing Building Residuals....\n")
-    log.write("Final Expression = \n")
-    log.write(res)
+                if len(tmp.terms) == 0 and ih > 0:
+                    res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
+                    break
 
-    with open(name + ".py", "w") as f:
-        f.write(res)
+                if ih == hbar_order:
+                    raise Exception("bra %d did not converge" % ibra)
+
+        print(res, "\n")
+
+        with open(name + ".py", "w") as f:
+            f.write(res)
 
 if __name__ == "__main__":
-    gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=5, with_h2e=True)
-    gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=5, with_h2e=True)
+    gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4, with_h2e=True)
+    gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=4, with_h2e=True)
 
