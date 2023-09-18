@@ -289,8 +289,6 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     log.flush()
     if rank == 0:
         print("Finishing Building Hbar....")
-        print("\nNumber of terms in amplitude = %d" % (elec_order + 2 * ph_order))
-        print("Number of terms if Hbar      = %d" % (len(Hbar)))
 
     for i in range(1, ph_order + 1):
         bra_list.append(braPN(i))
@@ -302,6 +300,9 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     log.flush()
     if rank == 0:
         print("Finishing Initialization....")
+        print("\nNumber of terms in amplitude = %d" % (elec_order + 2 * ph_order))
+        print("Number of terms of Hbar        = %d" % (len(Hbar)))
+        print("Number of terms of bra_list    = %d" % (len(bra_list)))
 
     def gen_res_func(ih, ibra):
         h   = Hbar[ih]
@@ -330,7 +331,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 # Logging details
                 log.write("\nrank = %d, ibra = %d, ih = %d\n" % (rank, ibra, ih))
                 log.write("ibra * len(Hbar) + ih = %d\n" % (ibra * len(Hbar) + ih))
-                log.write("tmp = \n")
+                log.write("len(tmp.terms) = %d\n" % (len(tmp.terms)))
                 log.write(str(tmp))
                 log.write("\n\n")
                 log.flush()
@@ -364,7 +365,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 tmp = tmp_dict[ibra][ih]
                 final = tmp if final is None else final + tmp
 
-                if len(tmp.terms) <= 1 and ih > 0:
+                if len(tmp.terms) == 0 and ih > 0:
                     if bra is not None:
                         func_name = f"get_res_{ibra}"
                     else:
