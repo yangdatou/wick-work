@@ -251,7 +251,11 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     H1e1p = ep11("cc_obj.h1e1p", ["occ", "vir"], ["nm"], norder=True)
     H = H1e + H1p + H1e1p if not with_h2e else H1e + H2e + H1p + H1e1p
 
+    comm.Barrier()
     log.write("Finishing Building Hamiltonian....\n")
+    log.flush()
+    if rank == 0:
+        print("Finishing Building Hamiltonian....")
 
     if elec_order == 1:
         T = E1("amp[0]", ["occ"], ["vir"])
@@ -268,22 +272,32 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         T += PN(i+1, "amp[%d]" % (elec_order + 2 * i - 1))
         T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i))
 
+    comm.Barrier()
     log.write("Finishing Building T....\n")
+    log.flush()
+    if rank == 0:
+        print("Finishing Building T....")
 
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
         hbar = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
         Hbar.append(hbar)
 
+    comm.Barrier()
     log.write("Finishing Building Hbar....\n")
+    log.flush()
+    if rank == 0:
+        print("Finishing Building Hbar....")
 
     for i in range(1, ph_order + 1):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
 
+    comm.Barrier()
     log.write("Finishing Initialization....\n")
     log.flush()
-    comm.Barrier()
+    if rank == 0:
+        print("Finishing Initialization....")
 
     def gen_res_func(ih, ibra):
         log.write("ibra = %d, ih = %d\n" % (ibra, ih))
@@ -301,18 +315,42 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         return tmp
 
     tmp_list = []
+
+    # Iterate over bra_list and Hbar
     for ibra, bra in enumerate(bra_list):
         for ih, h in enumerate(Hbar):
+            # Compute condition
             if (ibra * len(Hbar) + ih) % size == rank:
                 tmp = gen_res_func(ih, ibra)
-                tmp_list.append(tmp)
+
+                # Store the result along with the indices for reshaping later
+                tmp_list.append((ibra, ih, tmp))
+
+                # Logging details
                 log.write("rank = %d, ih = %d, ibra = %d\n" % (rank, ih, ibra))
+                log.write("ibra * len(Hbar) + ih = %d\n" % (ibra * len(Hbar) + ih))
                 log.write("tmp = \n")
                 log.write(str(tmp))
-                log.write("\n")
+                log.write("\n\n")
                 log.flush()
+
+                print("Finished ih = %d / %d, ibra = %d / %d" % (ih, len(Hbar), ibra, len(bra_list)))
+
+    # Synchronize all ranks
     comm.Barrier()
-    comm.gather(tmp_list, root=0)
+
+    # Gather all tmp_list data at root
+    all_tmp_lists = comm.gather(tmp_list, root=0)
+
+    # Reshape the gathered data at root
+    if rank == 0:
+        # Initialize an empty results dictionary
+        tmp_dict = {ibra: {} for ibra in range(len(bra_list))}
+
+        # Iterate over the gathered data to reshape
+        for tmp_data in all_tmp_lists:
+            for ibra, ih, tmp in tmp_data:
+                tmp_dict[ibra][ih] = tmp
 
     if rank == 0:
         print("Generating %s.py ..." % name)
@@ -323,7 +361,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
             final = None
 
             for ih, h in enumerate(Hbar):
-                tmp = tmp_list[ibra * len(Hbar) + ih]
+                tmp = tmp_dict[ibra][ih]
                 final = tmp if final is None else final + tmp
 
                 if len(tmp.terms) == 0 and ih > 0:
