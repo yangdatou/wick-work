@@ -250,6 +250,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     H1e1p = ep11("cc_obj.h1e1p", ["occ", "vir"], ["nm"], norder=True)
     H = H1e + H1p + H1e1p if not with_h2e else H1e + H2e + H1p + H1e1p
 
+    print("rank = % 4d, size = %d" % (rank, size), flush=True)
     comm.Barrier()
     log.write("Finishing Building Hamiltonian....\n")
     log.flush()
@@ -300,9 +301,10 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     log.flush()
     if rank == 0:
         print("Finishing Initialization....")
-        print("\nNumber of terms in amplitude = %d" % (elec_order + 2 * ph_order))
+        print("Number of terms in amplitude   = %d" % (elec_order + 2 * ph_order))
         print("Number of terms of Hbar        = %d" % (len(Hbar)))
         print("Number of terms of bra_list    = %d" % (len(bra_list)))
+        print()
 
     def gen_res_func(ih, ibra):
         h   = Hbar[ih]
@@ -329,7 +331,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 tmp_list.append((ibra, ih, tmp))
 
                 # Logging details
-                log.write("\nrank = %d, ibra = %d, ih = %d\n" % (rank, ibra, ih))
+                log.write("\nrank = %d, ih = %d, ibra = %d\n" % (rank, ih+1, ibra+1))
                 log.write("ibra * len(Hbar) + ih = %d\n" % (ibra * len(Hbar) + ih))
                 log.write("len(tmp.terms) = %d\n" % (len(tmp.terms)))
                 log.write(str(tmp))
@@ -384,7 +386,12 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         with open(name + ".py", "w") as f:
             f.write(res)
 
+    # Synchronize all ranks
+    comm.Barrier()
+
 if __name__ == "__main__":
+    gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4, with_h2e=True)
+    gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=4, with_h2e=True)
     gen_epcc_eqs(elec_order=1, ph_order=1, hbar_order=4, with_h2e=False)
     gen_epcc_eqs(elec_order=1, ph_order=2, hbar_order=4, with_h2e=False)
     gen_epcc_eqs(elec_order=1, ph_order=4, hbar_order=4, with_h2e=False)
