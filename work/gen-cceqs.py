@@ -251,6 +251,8 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     H1e1p = ep11("cc_obj.h1e1p", ["occ", "vir"], ["nm"], norder=True)
     H = H1e + H1p + H1e1p if not with_h2e else H1e + H2e + H1p + H1e1p
 
+    log.write("Finishing Building Hamiltonian....\n")
+
     if elec_order == 1:
         T = E1("amp[0]", ["occ"], ["vir"])
         bra_list = [braE1("occ", "vir")]
@@ -266,18 +268,24 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         T += PN(i+1, "amp[%d]" % (elec_order + 2 * i - 1))
         T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i))
 
+    log.write("Finishing Building T....\n")
+
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
         hbar = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
         Hbar.append(hbar)
 
+    log.write("Finishing Building Hbar....\n")
+
     for i in range(1, ph_order + 1):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
 
-    if rank == 0:
-        print("Initialization Complete....")
+    log.write("Finishing Initialization....\n")
     comm.Barrier()
+
+    if rank == 0:
+        print("Finishing Initialization....")
 
     def gen_res_func(ih, ibra):
         h   = Hbar[ih]
