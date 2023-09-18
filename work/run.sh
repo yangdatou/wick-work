@@ -2,8 +2,8 @@
 #SBATCH --partition=debug
 #SBATCH --time=01:00:00
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=28
+#SBATCH --ntasks-per-node=28
+#SBATCH --cpus-per-task=1
 #SBATCH --mem=0
 #SBATCH --job-name=cceph
 #SBATCH --output=/scratch/global/yangjunjie/slurm-%x-%j.log
@@ -40,4 +40,5 @@ cd ../wick-main/; export PYTHONPATH=$PWD; cd -;
 export PYTHONPATH=/home/yangjunjie/packages/pyscf/pyscf-main/:$PYTHONPATH;
 export PYTHONUNBUFFERED=TRUE;
 
-time python gen-cceqs.py
+time mpiexec -n $SLURM_NTASKS \
+  python gen-cceqs.py
