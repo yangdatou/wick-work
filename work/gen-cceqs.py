@@ -282,6 +282,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         bra_list.append(braPNE1(i))
 
     log.write("Finishing Initialization....\n")
+    log.flush()
     comm.Barrier()
 
     def gen_res_func(ih, ibra):
@@ -300,18 +301,22 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         return tmp
 
     tmp_list = []
-    assert len(bra_list) * len(Hbar) <= size
-    log.write("rank = %d, size = %d\n" % (rank, size))
-    log.write("ibra = %d, ih = %d\n" % (rank // len(Hbar), rank % len(Hbar)))
-
-    tmp = gen_res_func(rank // len(Hbar), rank % len(Hbar))
-    log.write("tmp = \n")
-    log.write(str(tmp))
-    tmp_list.append(tmp)
-    tmp_list = comm.gather(tmp_list, root=0)
+    for ibra, bra in enumerate(bra_list):
+        for ih, h in enumerate(Hbar):
+            if (ibra * len(Hbar) + ih) % size == rank:
+                tmp = gen_res_func(ih, ibra)
+                tmp_list.append(tmp)
+                log.write("rank = %d, ih = %d, ibra = %d\n" % (rank, ih, ibra))
+                log.write("tmp = \n")
+                log.write(str(tmp))
+                log.write("\n")
+                log.flush()
     comm.Barrier()
+    comm.gather(tmp_list, root=0)
 
     if rank == 0:
+        print("Generating %s.py ..." % name)
+        print("len(tmp_list) = %d" % len(tmp_list))
         res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
 
         for ibra, bra in enumerate(bra_list):
