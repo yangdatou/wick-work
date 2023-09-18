@@ -292,11 +292,11 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
             final = tmp if final is None else final + tmp
 
             if len(tmp.terms) == 0 and ih > 0:
-                res += "\n" + gen_einsum_fxn(final, f"get_res_bra_{ibra}") + "\n"
+                res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
                 break
 
             if ih == hbar_order:
-                res += "\n" + gen_einsum_fxn(final, f"get_res_bra_{ibra}") + "\n"
+                res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
                 print(res)
                 raise Exception("bra %d did not converge" % ibra)
 
