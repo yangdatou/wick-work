@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --partition=debug
-#SBATCH --time=00:10:00
+#SBATCH --time=00:30:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=qed-fci

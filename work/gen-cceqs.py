@@ -263,6 +263,8 @@ def gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
 
+    res = ""
+
     for ibra, bra in enumerate(bra_list):
         final = None
         for ih, h in enumerate(Hbar):
@@ -273,13 +275,20 @@ def gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4):
             final = tmp if final is None else final + tmp
 
             if len(tmp.terms) == 0 and ih > 0:
-                print("\n", gen_einsum_fxn(final, f"res_bra{ibra}"), "\n")
+                res += "\n" + gen_einsum_fxn(final, f"res_bra{ibra}")
+                print("\n", res, "\n")
                 break
 
             if ih == hbar_order:
-                print("\n", gen_einsum_fxn(final, f"res_bra{ibra}"), "\n")
+                res += "\n" + gen_einsum_fxn(final, f"res_bra{ibra}")
+                print("\n", res, "\n")
                 print("not converged")
 
+    with open("cc_e%d_p%d_h%d.py" % (elec_order, ph_order, hbar_order), "w") as f:
+        f.write(res)
+
+    return res
+
 if __name__ == "__main__":
-    gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=4)
-    
+    res = gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=4)
+
