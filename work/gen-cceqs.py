@@ -74,15 +74,6 @@ def gen_einsum_fxn(expr, name_str):
 
     return '\n'.join(function_lines)
 
-def two_p(name):
-    sym = TensorSym([(0, 1), (1, 0)], [1, 1])
-    x = Idx(0, "nm", fermion=False)
-    y = Idx(1, "nm", fermion=False)
-    tensors = [Tensor([x, y], name, sym=sym)]
-    operators = [BOperator(x, True), BOperator(y, False)]
-    term = Term(1, [Sigma(x), Sigma(y)], tensors, operators, [], index_key=None)
-    return Expression([term])
-
 def PN(ph_max, name):
     """
     Return the tensor representation of a Boson ph_max-excitation operator for spaces=["mn"]
@@ -128,7 +119,7 @@ def PN(ph_max, name):
     return Expression(terms)
 
 
-def EPSN(ph_max, name):
+def PNE1(ph_max, name):
     """
     Return the tensor representation of a coupled Fermion-ph_max Boson excitation operator
     for bspaces=["mn"], ospaces=["ij"], and vspaces=["ab"].
@@ -209,36 +200,6 @@ def braPN(ph_max):
     # Return the entire expression for the operator
     return Expression([term])
 
-
-def braPN(ph_max):
-    """
-    Return projection onto space of ph_max Boson excitations
-
-    Args:
-    - ph_max (int): Number of Boson excitations.
-    - space (str): Name of boson space.
-    - index_key (optional): Additional key for index, defaults to None.
-
-    Returns:
-    - Expression: Projection onto space of ph_max Boson excitations.
-    """
-
-    # Create ph_max Boson indices for the given space
-    b_indices = [Idx(i, "nm", fermion=False) for i in range(ph_max)]
-
-    # Create Boson operators for each index
-    operators = [BOperator(idx, False) for idx in b_indices]
-
-    # Define the tensors using the indices
-    tensors = [Tensor(b_indices, "")]
-
-    # Construct the term for the operator using the tensors and operators
-    term = Term(1, [], tensors, operators, [], index_key=None)
-
-    # Return the entire expression for the operator
-    return Expression([term])
-
-
 def braPNE1(ph_max):
     """
     Return left-projector onto a space of single excitations coupled to
@@ -272,24 +233,32 @@ def braPNE1(ph_max):
     # Return the entire expression for the operator
     return Expression([term])
 
-def gen_epcc_eqs(ph_order=1, hbar_order=4):
+def gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4):
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
-    H1p   = two_p("cc_obj.h1p")
+    H1p   = one_p("cc_obj.h1p_eff") + two_p("cc_obj.h1p", ["occ", "vir"], ["nm"], norder=True)
     H1e1p = ep11("cc_obj.h1e1p", ["occ", "vir"], ["nm"], norder=True)
     H = H1e + H1p + H1e1p
 
-    T = E1("amp[0]", ["occ"], ["vir"])
+    if elec_order == 1:
+        T = E1("amp[0]", ["occ"], ["vir"])
+        bra_list = [braE1("occ", "vir")]
+
+    elif elec_order == 2:
+        T = E1("amp[0]", ["occ"], ["vir"]) + E2("amp[1]", ["occ"], ["vir"], ["nm"])
+        bra_list = [braE1("occ", "vir"), braE2("occ", "vir")]
+
+    else:
+        raise Exception("elec_order must be 1 or 2")
 
     for i in range(1, ph_order + 1):
         T += PN(i, "amp[%d]" % (2 * i-1))
-        T += EPSN(i, "amp[%d]" % (2 * i))
+        T += PNE1(i, "amp[%d]" % (2 * i))
 
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
-        Hbar_i = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
-        Hbar.append(Hbar_i)
+        hbar = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
+        Hbar.append(hbar)
 
-    bra_list = [braE1("occ", "vir")]
     for i in range(1, ph_order + 1):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
@@ -312,4 +281,5 @@ def gen_epcc_eqs(ph_order=1, hbar_order=4):
                 print("not converged")
 
 if __name__ == "__main__":
-    gen_epcc_eqs(ph_order=2, hbar_order=4)
+    gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=4)
+    
