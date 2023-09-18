@@ -236,7 +236,14 @@ def braPNE1(ph_max):
     return Expression([term])
 
 def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    print("rank = %d, size = %d" % (rank, size))
+
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
+    log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
 
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
     H2e   = two_e("cc_obj.h2e", ["occ", "vir"], norder=True, compress=True)
@@ -269,7 +276,9 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
 
-    print("Initialization Complete....")
+    if rank == 0:
+        print("Initialization Complete....")
+    comm.Barrier()
 
     def gen_res_func(ih, ibra):
         h   = Hbar[ih]
@@ -282,15 +291,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         return tmp
 
     tmp_list = []
-
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    print("rank = %d, size = %d" % (rank, size))
-
     assert len(bra_list) * len(Hbar) <= size
-    log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
     log.write("rank = %d, size = %d\n" % (rank, size))
     log.write("ibra = %d, ih = %d\n" % (rank // len(Hbar), rank % len(Hbar)))
 
