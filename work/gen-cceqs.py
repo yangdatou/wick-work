@@ -297,22 +297,11 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     tmp_list.append(tmp)
     tmp_list = comm.gather(tmp_list, root=0)
 
-<<<<<<< HEAD
     if rank == 0:
         res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
 
         for ibra, bra in enumerate(bra_list):
             final = None
-=======
-            if len(tmp.terms) == 0 and ih > 0:
-                res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
-                break
-
-            if ih == hbar_order:
-                res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
-                print(res)
-                raise Exception("bra %d did not converge" % ibra)
->>>>>>> refs/remotes/origin/main
 
             for ih, h in enumerate(Hbar):
                 tmp = tmp_list[ibra * len(Hbar) + ih]
