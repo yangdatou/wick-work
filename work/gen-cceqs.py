@@ -240,7 +240,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    print("rank = %d, size = %d" % (rank, size))
+    print("rank = %2d, size = %2d" % (rank, size))
 
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
     log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
@@ -269,7 +269,6 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
         hbar = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
-        hbar.resolve()
         Hbar.append(hbar)
 
     for i in range(1, ph_order + 1):
