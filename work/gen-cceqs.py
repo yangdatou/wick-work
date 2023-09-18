@@ -255,16 +255,15 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     log.flush()
     if rank == 0:
         print("Finishing Building Hamiltonian....")
-        print("Number of terms in amplitude = %d" % (elec_order + 2 * ph_order))
-        print("Number of terms if Hbar      = %d" % (hbar_order + 1))
 
+    bra_list = []
     if elec_order == 1:
         T = E1("amp[0]", ["occ"], ["vir"])
-        bra_list = [braE1("occ", "vir")]
+        bra_list += [braE1("occ", "vir")]
 
     elif elec_order == 2:
         T = E1("amp[0]", ["occ"], ["vir"]) + E2("amp[1]", ["occ"], ["vir"])
-        bra_list = [braE1("occ", "vir"), braE2("occ", "vir", "occ", "vir")]
+        bra_list += [braE1("occ", "vir"), braE2("occ", "vir", "occ", "vir")]
 
     else:
         raise Exception("elec_order must be 1 or 2")
@@ -290,10 +289,13 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     log.flush()
     if rank == 0:
         print("Finishing Building Hbar....")
+        print("\nNumber of terms in amplitude = %d" % (elec_order + 2 * ph_order))
+        print("Number of terms if Hbar      = %d" % (len(Hbar)))
 
     for i in range(1, ph_order + 1):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
+    bra_list += [None]
 
     comm.Barrier()
     log.write("Finishing Initialization....\n")
@@ -302,19 +304,16 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         print("Finishing Initialization....")
 
     def gen_res_func(ih, ibra):
-        log.write("ibra = %d, ih = %d\n" % (ibra, ih))
         h   = Hbar[ih]
         bra = bra_list[ibra]
 
-        out = apply_wick(bra * h)
+        if bra is not None:
+            out = apply_wick(bra * h)
+        else:
+            out = apply_wick(h)
         out.resolve()
 
-        tmp = AExpression(Ex=out)
-
-        log.write("tmp = \n")
-        log.write(str(tmp))
-        log.write("\n")
-        return tmp
+        return AExpression(Ex=out)
 
     tmp_list = []
 
@@ -329,7 +328,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 tmp_list.append((ibra, ih, tmp))
 
                 # Logging details
-                log.write("rank = %d, ih = %d, ibra = %d\n" % (rank, ih, ibra))
+                log.write("\nrank = %d, ibra = %d, ih = %d\n" % (rank, ibra, ih))
                 log.write("ibra * len(Hbar) + ih = %d\n" % (ibra * len(Hbar) + ih))
                 log.write("tmp = \n")
                 log.write(str(tmp))
@@ -359,17 +358,25 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
 
         for ibra, bra in enumerate(bra_list):
             final = None
+            is_converged = False
 
             for ih, h in enumerate(Hbar):
                 tmp = tmp_dict[ibra][ih]
                 final = tmp if final is None else final + tmp
 
                 if len(tmp.terms) <= 1 and ih > 0:
-                    res += "\n" + gen_einsum_fxn(final, f"get_res_{ibra}") + "\n"
+                    if bra is not None:
+                        func_name = f"get_res_{ibra}"
+                    else:
+                        func_name = "get_ene"
+
+                    res += "\n" + gen_einsum_fxn(final, func_name) + "\n"
+
+                    is_converged = True
                     break
 
-                if ih == hbar_order:
-                    raise Exception("bra %d did not converge" % ibra)
+            if not is_converged:
+                print("ibra = %d, is not converged up to hbar_order = %d" % (ibra, hbar_order))
 
         print(res, "\n")
 
