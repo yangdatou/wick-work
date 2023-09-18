@@ -378,8 +378,8 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
             f.write(res)
 
 if __name__ == "__main__":
-    gen_epcc_eqs(elec_order=1, ph_order=1, hbar_order=4, with_h2e=False)
-    gen_epcc_eqs(elec_order=1, ph_order=2, hbar_order=4, with_h2e=False)
-    gen_epcc_eqs(elec_order=1, ph_order=4, hbar_order=4, with_h2e=False)
-    gen_epcc_eqs(elec_order=1, ph_order=8, hbar_order=4, with_h2e=False)
+    gen_epcc_eqs(elec_order=1, ph_order=1, hbar_order=3, with_h2e=False)
+    gen_epcc_eqs(elec_order=1, ph_order=2, hbar_order=3, with_h2e=False)
+    gen_epcc_eqs(elec_order=1, ph_order=4, hbar_order=3, with_h2e=False)
+    gen_epcc_eqs(elec_order=1, ph_order=8, hbar_order=3, with_h2e=False)
 
