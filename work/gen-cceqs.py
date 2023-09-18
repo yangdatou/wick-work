@@ -240,7 +240,6 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    print("rank = %2d, size = %2d" % (rank, size))
 
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
     log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
@@ -256,6 +255,8 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     log.flush()
     if rank == 0:
         print("Finishing Building Hamiltonian....")
+        print("Number of terms in amplitude = %d" % (elec_order + 2 * ph_order))
+        print("Number of terms if Hbar      = %d" % (hbar_order + 1))
 
     if elec_order == 1:
         T = E1("amp[0]", ["occ"], ["vir"])
@@ -281,6 +282,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
         hbar = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
+        hbar.resolve()
         Hbar.append(hbar)
 
     comm.Barrier()
@@ -352,7 +354,6 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
             for ibra, ih, tmp in tmp_data:
                 tmp_dict[ibra][ih] = tmp
 
-    if rank == 0:
         print("Generating %s.py ..." % name)
         print("len(tmp_list) = %d" % len(tmp_list))
         res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
