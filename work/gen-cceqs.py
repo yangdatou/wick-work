@@ -258,6 +258,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
         hbar = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
+        hbar.resolve()
         Hbar.append(hbar)
 
     for i in range(1, ph_order + 1):
@@ -295,10 +296,12 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 break
 
             if ih == hbar_order:
+                res += "\n" + gen_einsum_fxn(final, f"get_res_bra_{ibra}") + "\n"
+                print(res)
                 raise Exception("bra %d did not converge" % ibra)
 
     print(res, "\n")
-    name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "")
+    name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
 
     with open(name + ".py", "w") as f:
         f.write(res)
@@ -306,8 +309,5 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     return res
 
 if __name__ == "__main__":
-    res = gen_epcc_eqs(elec_order=1, ph_order=2, hbar_order=4)
-    res = gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=4)
-    res = gen_epcc_eqs(elec_order=1, ph_order=4, hbar_order=4)
-    res = gen_epcc_eqs(elec_order=1, ph_order=6, hbar_order=4)
+    res = gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=4, with_h2e=True)
 
