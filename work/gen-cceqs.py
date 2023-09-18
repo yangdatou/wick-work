@@ -336,7 +336,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 log.write("\n\n")
                 log.flush()
 
-                print("Finished ih = %d / %d, ibra = %d / %d" % (ih, len(Hbar), ibra, len(bra_list)))
+                print("Finished ih = %d / %d, ibra = %d / %d" % (ih + 1, len(Hbar), ibra + 1, len(bra_list)))
 
     # Synchronize all ranks
     comm.Barrier()
@@ -355,7 +355,6 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
                 tmp_dict[ibra][ih] = tmp
 
         print("Generating %s.py ..." % name)
-        print("len(tmp_list) = %d" % len(tmp_list))
         res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
 
         for ibra, bra in enumerate(bra_list):
