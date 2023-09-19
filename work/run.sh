@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --partition=debug
-#SBATCH --time=01:00:00
+#SBATCH --partition=serial
+#SBATCH --time=20:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=28
 #SBATCH --cpus-per-task=1
@@ -9,12 +9,9 @@
 #SBATCH --output=/scratch/global/yangjunjie/slurm-%x-%j.log
 
 module purge
-module load PrgEnv-gnu/6.0.10
-module load cmake/3.22.2
-module load python
-
-export MKLROOT="/opt/intel/compilers_and_libraries_2020.2.254/linux/mkl"
-source $MKLROOT/bin/mklvars.sh intel64
+module load gcc/9.2.0
+module load binutils/2.26
+module load cmake-3.6.2 
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
@@ -42,5 +39,5 @@ cd ../wick-main/; export PYTHONPATH=$PWD; cd -;
 export PYTHONPATH=/home/yangjunjie/packages/pyscf/pyscf-main/:$PYTHONPATH;
 export PYTHONUNBUFFERED=TRUE;
 
-time mpiexec -n $SLURM_NTASKS \
-python gen-cceqs.py
+time python gen-cceqs.py
+
