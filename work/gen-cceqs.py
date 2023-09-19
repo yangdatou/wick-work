@@ -261,8 +261,8 @@ def epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         raise Exception("elec_order must be 1 or 2")
 
     for i in range(ph_order):
-        T += PN(i+1, "amp[%d]" % (elec_order + 2 * i - 1))
-        T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i))
+        T += PN(i+1, "amp[%d]" % (elec_order + 2 * i))
+        T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i + 1))
 
     log.write("Finishing Building T....\n")
     log.flush()
