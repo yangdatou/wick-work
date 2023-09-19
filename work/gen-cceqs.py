@@ -88,17 +88,32 @@ def term_info(expr, name=None):
         info += "%s %s" % (tname, " ".join(operators)) + "\n"
     return info
 
+def space_idx_formatter(name, space_list):
+    """Format space index based on given rules."""
+
+    spaces = [space[0] for space in space_list if space != "nm"]
+    return f"{name}." + "".join(spaces) if spaces else f"{name}"
+
+
 def einsum_str(t_obj):
     """Generate string for numpy einsum function based on tensor object."""
 
     imap = t_obj._idx_map()
     scalar_str = f"{float(t_obj.scalar): 12.6f}"
+    final_str, index_str, tensor_str = "", "", ""
 
-    final_str  = "".join(tensor._istr(imap) for tensor in t_obj.tensors if not tensor.name)
-    index_str  = ",".join(tensor._istr(imap) for tensor in t_obj.tensors if tensor.name)
-    tensor_str = ", ".join(f", {tensor.name}" if "amp" not in tensor.name else tensor.name for tensor in t_obj.tensors if tensor.name)
+    for tensor in t_obj.tensors:
+        if not tensor.name:  # Part of final string index
+            final_str += tensor._istr(imap)
+        else:
+            name = ", " + (space_idx_formatter(
+                tensor.name, [idx.space for idx in tensor.indices]) \
+                    if "amp" not in tensor.name else tensor.name
+                )
+            tensor_str += name
+            index_str += tensor._istr(imap) + ","
 
-    einsum_input = f"'{index_str}->{final_str}'"
+    einsum_input = f"'{index_str[:-1]}->{final_str}'"
     return f"{scalar_str} * einsum({einsum_input:20s}{tensor_str})"
 
 
