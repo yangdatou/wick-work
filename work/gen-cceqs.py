@@ -235,27 +235,18 @@ def braPNE1(ph_max):
     # Return the entire expression for the operator
     return Expression([term])
 
-def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-
+def epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
-    log = open(LOG_TMPDIR + name + "_%d.log" % rank, "w")
+    log = sys.stdout
 
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
     H2e   = two_e("cc_obj.h2e", ["occ", "vir"], norder=True, compress=True)
     H1p   = one_p("cc_obj.h1p_eff") + two_p("cc_obj.h1p")
-    H1e1p = ep11("cc_obj.h1e1p", ["occ", "vir"], ["nm"], norder=True)
-    H = H1e + H1p + H1e1p if not with_h2e else H1e + H2e + H1p + H1e1p
+    H1p1e = ep11("cc_obj.h1p1e", ["occ", "vir"], ["nm"], norder=True)
+    H = H1e + H1p + H1p1e if not with_h2e else H1e + H2e + H1p + H1p1e
 
-    print("rank = % 4d, size = %d" % (rank, size), flush=True)
-    comm.Barrier()
     log.write("Finishing Building Hamiltonian....\n")
     log.flush()
-    if rank == 0:
-        print("Finishing Building Hamiltonian....")
 
     bra_list = []
     if elec_order == 1:
@@ -273,11 +264,8 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         T += PN(i+1, "amp[%d]" % (elec_order + 2 * i - 1))
         T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i))
 
-    comm.Barrier()
     log.write("Finishing Building T....\n")
     log.flush()
-    if rank == 0:
-        print("Finishing Building T....")
 
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
@@ -285,115 +273,81 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
         # hbar.resolve()
         Hbar.append(hbar)
 
-    comm.Barrier()
     log.write("Finishing Building Hbar....\n")
     log.flush()
-    if rank == 0:
-        print("Finishing Building Hbar....")
 
     for i in range(1, ph_order + 1):
         bra_list.append(braPN(i))
         bra_list.append(braPNE1(i))
     bra_list += [None]
 
-    comm.Barrier()
     log.write("Finishing Initialization....\n")
-    log.flush()
-    if rank == 0:
-        print("Finishing Initialization....")
-        print("Number of terms in amplitude   = %d" % (elec_order + 2 * ph_order))
-        print("Number of terms of Hbar        = %d" % (len(Hbar)))
-        print("Number of terms of bra_list    = %d" % (len(bra_list)))
-        print()
+    log.write("Number of terms in amplitude   = % 2d\n" % (elec_order + 2 * ph_order))
+    log.write("Number of terms of Hbar        = % 2d\n" % (len(Hbar)))
+    log.write("Number of terms of bra_list    = % 2d\n" % (len(bra_list)))
+    log.write("\n")
 
-    def gen_res_func(ih, ibra):
-        h   = Hbar[ih]
-        bra = bra_list[ibra]
-
-        if bra is not None:
-            out = apply_wick(bra * h)
-        else:
-            out = apply_wick(h)
-        out.resolve()
-
-        return AExpression(Ex=out)
-
-    tmp_list = []
+    print("Generating %s.py ..." % name)
+    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
 
     # Iterate over bra_list and Hbar
     for ibra, bra in enumerate(bra_list):
+        final = None
+        is_converged = False
+
         for ih, h in enumerate(Hbar):
-            # Compute condition
-            if (ibra * len(Hbar) + ih) % size == rank:
-                tmp = gen_res_func(ih, ibra)
+            if bra is not None:
+                out = apply_wick(bra * h)
+            else:
+                out = apply_wick(h)
+            out.resolve()
+            tmp = AExpression(Ex=out)
 
-                # Store the result along with the indices for reshaping later
-                tmp_list.append((ibra, ih, tmp))
+            final = tmp if final is None else final + tmp
 
-                # Logging details
-                log.write("\nrank = %d, ih = %d, ibra = %d\n" % (rank, ih+1, ibra+1))
-                log.write("ibra * len(Hbar) + ih = %d\n" % (ibra * len(Hbar) + ih))
-                log.write("len(tmp.terms) = %d\n" % (len(tmp.terms)))
-                log.write(str(tmp))
-                log.write("\n\n")
-                log.flush()
+            # Logging details
+            log.write("\nih = %d, ibra = %d\n" % (ih, ibra))
+            log.write("len(tmp.terms) = %d\n" % (len(tmp.terms)))
+            log.write(str(tmp))
+            log.write("\n\n")
+            log.flush()
 
-                print("Finished ih = %d / %d, ibra = %d / %d" % (ih + 1, len(Hbar), ibra + 1, len(bra_list)))
+            if len(tmp.terms) == 0 and ih > 0:
+                if bra is not None:
+                    func_name = f"get_res_{ibra}"
 
-    # Synchronize all ranks
-    comm.Barrier()
+                else:
+                    func_name = "get_ene"
 
-    # Gather all tmp_list data at root
-    all_tmp_lists = comm.gather(tmp_list, root=0)
+                print("Generating %s ..." % func_name)
 
-    # Reshape the gathered data at root
-    if rank == 0:
-        # Initialize an empty results dictionary
-        tmp_dict = {ibra: {} for ibra in range(len(bra_list))}
+                res += "\n" + gen_einsum_fxn(final, func_name) + "\n"
 
-        # Iterate over the gathered data to reshape
-        for tmp_data in all_tmp_lists:
-            for ibra, ih, tmp in tmp_data:
-                tmp_dict[ibra][ih] = tmp
+                is_converged = True
+                break
 
-        print("Generating %s.py ..." % name)
-        res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
+        if not is_converged:
+            print("ibra = %d, is not converged up to hbar_order = %d" % (ibra, hbar_order))
 
-        for ibra, bra in enumerate(bra_list):
-            final = None
-            is_converged = False
-
-            for ih, h in enumerate(Hbar):
-                tmp = tmp_dict[ibra][ih]
-                final = tmp if final is None else final + tmp
-
-                if len(tmp.terms) == 0 and ih > 0:
-                    if bra is not None:
-                        func_name = f"get_res_{ibra}"
-                    else:
-                        func_name = "get_ene"
-
-                    res += "\n" + gen_einsum_fxn(final, func_name) + "\n"
-
-                    is_converged = True
-                    break
-
-            if not is_converged:
-                print("ibra = %d, is not converged up to hbar_order = %d" % (ibra, hbar_order))
-
-        print(res, "\n")
-
-        with open(name + ".py", "w") as f:
-            f.write(res)
-
-    # Synchronize all ranks
-    comm.Barrier()
+    print(res, "\n")
+    with open(name + ".py", "w") as f:
+        f.write(res)
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     gen_epcc_eqs(elec_order=2, ph_order=1, hbar_order=5, with_h2e=True)
     gen_epcc_eqs(elec_order=2, ph_order=2, hbar_order=5, with_h2e=True)
     # gen_epcc_eqs(elec_order=1, ph_order=1, hbar_order=4, with_h2e=False)
     # gen_epcc_eqs(elec_order=1, ph_order=2, hbar_order=4, with_h2e=False)
     # gen_epcc_eqs(elec_order=1, ph_order=4, hbar_order=4, with_h2e=False)
     # gen_epcc_eqs(elec_order=1, ph_order=8, hbar_order=4, with_h2e=False)
+=======
+    # LOG_TMPDIR = "/Users/yangjunjie/Downloads/"
+    epcc_eqs(elec_order=2, ph_order=1, hbar_order=5, with_h2e=True)
+    epcc_eqs(elec_order=2, ph_order=2, hbar_order=5, with_h2e=True)
+    # gen_epcc_eqs(elec_order=1, ph_order=1, hbar_order=4, with_h2e=False)
+    # gen_epcc_eqs(elec_order=1, ph_order=2, hbar_order=4, with_h2e=False)
+    # gen_epcc_eqs(elec_order=1, ph_order=4, hbar_order=4, with_h2e=False)
+    # gen_epcc_eqs(elec_order=1, ph_order=6, hbar_order=4, with_h2e=False)
+>>>>>>> refs/remotes/origin/pauling
 
