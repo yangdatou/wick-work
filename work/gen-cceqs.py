@@ -316,6 +316,7 @@ def BraPNE1(ph_max):
 
 def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
+
     log = sys.stdout
 
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
@@ -424,7 +425,7 @@ if __name__ == "__main__":
     elec_order = int(sys.argv[1])
     ph_order   = int(sys.argv[2])
     hbar_order = int(sys.argv[3])
-    with_h2e   = bool(sys.argv[4])
+    with_h2e   = bool(int(sys.argv[4]))
 
     gen_epcc_eqs(elec_order=elec_order, ph_order=ph_order, hbar_order=hbar_order, with_h2e=with_h2e)
 

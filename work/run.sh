@@ -39,8 +39,8 @@ cd ../wick-main/; export PYTHONPATH=$PWD; cd -;
 export PYTHONPATH=/home/yangjunjie/packages/pyscf/pyscf-main/:$PYTHONPATH;
 export PYTHONUNBUFFERED=TRUE;
 
-time python gen-cceqs.py 2 1 4 1 > $LOG_TMPDIR/2141.log
-time python gen-cceqs.py 2 2 4 1 > $LOG_TMPDIR/2241.log
+# time python gen-cceqs.py 2 1 4 1 > $LOG_TMPDIR/2141.log
+# time python gen-cceqs.py 2 2 4 1 > $LOG_TMPDIR/2241.log
 time python gen-cceqs.py 1 1 4 0 > $LOG_TMPDIR/1140.log
 time python gen-cceqs.py 1 2 4 0 > $LOG_TMPDIR/1240.log
 time python gen-cceqs.py 1 4 4 0 > $LOG_TMPDIR/1440.log
