@@ -349,8 +349,7 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
 
     Hbar = [H]
     for ihbar in range(1, hbar_order + 1):
-        hbar = commute(Hbar[-1], T) * Fraction(1, factorial(ihbar))
-        # hbar.resolve()
+        hbar = commute(Hbar[-1], T) * Fraction(1, ihbar)
         Hbar.append(hbar)
 
     log.write("Finishing Building Hbar....\n")
