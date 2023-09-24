@@ -43,5 +43,6 @@ export PYTHONUNBUFFERED=TRUE;
 # time python gen-cceqs.py 2 2 4 1 > $LOG_TMPDIR/2241.log
 # time python gen-cceqs.py 1 1 4 0 > $LOG_TMPDIR/1140.log
 # time python gen-cceqs.py 1 2 4 0 > $LOG_TMPDIR/1240.log
-time python gen-cceqs.py 1 4 3 0 > $LOG_TMPDIR/1430.log
-time python gen-cceqs.py 1 8 3 0 > $LOG_TMPDIR/1830.log
+# time python gen-cceqs.py 1 4 3 0 > $LOG_TMPDIR/1430.log
+time python gen-cceqs.py 1 6 3 0 > $LOG_TMPDIR/1630.log
+# time python gen-cceqs.py 1 8 3 0 > $LOG_TMPDIR/1830.log
