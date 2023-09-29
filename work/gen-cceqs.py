@@ -122,38 +122,10 @@ def print_einsum(expr_obj):
 
     equations = []
     for idx, term in enumerate(expr_obj.terms):
-        lhs = "res  = " if idx == 0 else "res += "
-        equation = f"{lhs}{einsum_str(term)}"
+        equation = f"{einsum_str(term)}"
         equations.append(equation)
 
     return "\n".join(equations)
-
-
-def gen_einsum_fxn(expr, name_str, comment=None):
-    """Generate Python function for numpy einsum based on expression and write to file.
-
-    Args:
-        expr (AExpression): The expression representing the einstein summation.
-        name_str (str): The name of the generated function.
-        comment (str, optional): Additional comments to include in the function. Default is None.
-
-    Returns:
-        str: The generated Python function as a string.
-
-    """
-
-    # Construct the function string
-    function_lines = [f"def {name_str}(cc_obj, amp):"]
-    
-    if comment:
-        function_lines.append(PYTHON_FILE_TAB + '"""')
-        function_lines.append(PYTHON_FILE_TAB + comment)
-        function_lines.append(PYTHON_FILE_TAB + '"""')
-
-    function_lines.extend([PYTHON_FILE_TAB + line for line in print_einsum(expr).split("\n")])
-    function_lines.append(PYTHON_FILE_TAB + "return res")
-
-    return '\n'.join(function_lines)
 
 def PN(ph_max, name):
     """
@@ -314,10 +286,8 @@ def BraPNE1(ph_max):
     # Return the entire expression for the operator
     return Expression([term])
 
-def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4, h_and_bra=None):
+def gen_epcc_eqs_terms(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih=None, ibra=None, log=sys.stdout):
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
-
-    log = sys.stdout
 
     H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
     H2e   = two_e("cc_obj.h2e", ["occ", "vir"], norder=True, compress=True)
@@ -365,117 +335,6 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4, h_and_b
     log.write("Number of terms in amplitude   = % 2d\n" % (len(T.terms)))
     log.write("Number of terms of bra_list    = % 2d\n" % (len(bra_list)))
     log.write("Number of terms of Hbar        = % 2d\n" % (len(Hbar)))
-    
-    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
-
-    func_list = []
-
-    # Iterate over bra_list and Hbar
-    for ibra, bra in enumerate(bra_list):
-        if bra is not None:
-            func_name = f"res_{ibra}"
-        else:
-            func_name = "ene"
-
-        log.write("\n\nGenerating %s.%s ..." % (name, func_name))
-
-        is_converged = False
-        comment = get_info() + "\n" + amp_info 
-        if "res" in func_name:
-            comment += PYTHON_FILE_TAB + "res   : %s" % term_info(bra, name=None)
-
-        final = AExpression()
-
-        for ih, h in enumerate(Hbar):
-            if bra is not None:
-                out = apply_wick(bra * h)
-            else:
-                out = apply_wick(h)
-            out.resolve()
-
-            tmp = AExpression(Ex=out)
-            final += tmp
-
-            # Logging details
-            comment_line = "ih = %d, ibra = %d, len(tmp.terms) = %d" % (ih, ibra, len(tmp.terms))
-            comment += "\n" + PYTHON_FILE_TAB + comment_line
-            log.write("\n" + comment_line)
-
-            if len(tmp.terms) == 0 and ih > 0:
-                is_converged = True
-                break
-
-        if not is_converged:
-            log.write("\nibra = %d, is not converged up to hbar_order = %d\n" % (ibra, hbar_order))
-            comment += "\n\n" + PYTHON_FILE_TAB + "NOTE: the equation is not truncted."
-
-        func_list.append(
-            gen_einsum_fxn(
-                final, func_name, comment=comment
-            )
-        )
-
-    res += "\n" + '\n\n'.join(func_list) + "\n"
-    log.write("\n\n" + res)
-
-    with open(name + ".py", "w") as f:
-        f.write(res)
-
-def gen_epcc_eqs_terms(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list=None, ibra_list=None):
-    name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
-
-    log = sys.stdout
-
-    H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
-    H2e   = two_e("cc_obj.h2e", ["occ", "vir"], norder=True, compress=True)
-    H1p   = one_p("cc_obj.h1p_eff") + two_p("cc_obj.h1p")
-    H1p1e = ep11("cc_obj.h1p1e", ["occ", "vir"], ["nm"], norder=True)
-    H = H1e + H1p + H1p1e if not with_h2e else H1e + H2e + H1p + H1p1e
-
-    log.write("Finishing Building Hamiltonian....\n")
-    log.flush()
-
-    bra_list = []
-    if elec_order == 1:
-        T = E1("amp[0]", ["occ"], ["vir"])
-        bra_list += [braE1("occ", "vir")]
-
-    elif elec_order == 2:
-        T = E1("amp[0]", ["occ"], ["vir"]) + E2("amp[1]", ["occ"], ["vir"])
-        bra_list += [braE1("occ", "vir"), braE2("occ", "vir", "occ", "vir")]
-
-    else:
-        raise Exception("elec_order must be 1 or 2")
-
-    for i in range(ph_order):
-        T += PN(i+1, "amp[%d]" % (elec_order + 2 * i))
-        T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i + 1))
-
-    amp_info = term_info(T)
-    log.write("Finishing Building T....\n")
-    log.flush()
-
-    Hbar = [H]
-    for ihbar in range(1, hbar_order + 1):
-        hbar = commute(Hbar[-1], T) * Fraction(1, ihbar)
-        Hbar.append(hbar)
-
-    log.write("Finishing Building Hbar....\n")
-    log.flush()
-
-    for i in range(1, ph_order + 1):
-        bra_list.append(BraPN(i))
-        bra_list.append(BraPNE1(i))
-    bra_list += [None]
-
-    log.write("Finishing Initialization....\n")
-    log.write("Number of terms in amplitude   = % 2d\n" % (len(T.terms)))
-    log.write("Number of terms of bra_list    = % 2d\n" % (len(bra_list)))
-    log.write("Number of terms of Hbar        = % 2d\n" % (len(Hbar)))
-    
-    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
-
-    func_list = []
 
     # Iterate over bra_list and Hbar
     for ibra, bra in enumerate(bra_list):
@@ -486,9 +345,6 @@ def gen_epcc_eqs_terms(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, i
             func_name = f"res_ibra_{ibra}"
         else:
             func_name = "ene"
-
-        expr = AExpression()
-        is_expr_converged = False
 
         for ih, h in enumerate(Hbar):
             if ih not in ih_list:
@@ -525,7 +381,7 @@ def gen_epcc_eqs_terms(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, i
             comment += "\n\n" + PYTHON_FILE_TAB + "NOTE: the equation is not truncted."
 
         func_list.append(
-            gen_einsum_fxn(
+            print_einsum(
                 final, func_name, comment=comment
             )
         )
@@ -537,10 +393,29 @@ def gen_epcc_eqs_terms(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, i
         f.write(res)
 
 if __name__ == "__main__":
-    elec_order = int(sys.argv[1])
-    ph_order   = int(sys.argv[2])
-    hbar_order = int(sys.argv[3])
-    with_h2e   = bool(int(sys.argv[4]))
+    amp_e_order     = int(sys.argv[1])
+    amp_p_order     = int(sys.argv[2])
+    hbar_max_order  = int(sys.argv[3])
 
-    gen_epcc_eqs(elec_order=elec_order, ph_order=ph_order, hbar_order=hbar_order, with_h2e=with_h2e)
+    bra_e_order = int(sys.argv[4])
+    bra_p_order = int(sys.argv[5])
+    hbar_idx   = int(sys.argv[5])
+
+    with_h2e   = False
+
+    outdir = os.path.join(os.getenv("OUTDIR", os.getcwd()), "epcc-%d-%d-%d" % (elec_order, ph_order, hbar_order))
+    tmpdir = os.path.join(outdir, "tmp")
+
+    if not os.path.exists(tmpdir):
+        os.makedirs(tmpdir)
+
+    res = "e%d-%d" % 
+    out = open(os.path.join(tmpdir, "res-e%d-p%d-h%d-ibra%d-ih%d.py" % (elec_order, ph_order, hbar_order, res_idx, hbar_idx)), "w")
+    log = open(os.path.join(tmpdir, "out-h%d-e%d-p%d.log" % (hbar_idx, elec_order, ph_order)), "w")
+
+    gen_epcc_eqs_terms(
+        elec_order=elec_order, ph_order=ph_order, hbar_order=hbar_order,
+        ih_list=[hbar_idx], ibra_list=[res_idx], with_h2e=with_h2e, 
+        out=out, log=log
+    )
 
