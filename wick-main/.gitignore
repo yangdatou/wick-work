@@ -1,0 +1,4 @@
+*.pyc
+.coverage
+bench
+*.egg-info
