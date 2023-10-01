@@ -3,9 +3,8 @@
 #SBATCH --time=120:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=28
+#SBATCH --cpus-per-task=1
 #SBATCH --mem=0
-#SBATCH --job-name=cceph
 
 module purge
 module load gcc/9.2.0
@@ -30,6 +29,6 @@ export TMPDIR=/scratch/global/yangjunjie/$SLURM_JOB_NAME-$SLURM_JOB_ID/
 export PYSCF_TMPDIR=TMPDIR; echo TMPDIR=$TMPDIR
 mkdir -p $TMPDIR
 
-cd ../wick-main/; export PYTHONPATH=$PWD; cd -;
+cd /home/yangjunjie/work/wick-work-main/src/wick-main; export PYTHONPATH=$PWD; cd -;
 export PYTHONPATH=/home/yangjunjie/packages/pyscf/pyscf-main/:$PYTHONPATH;
 export PYTHONUNBUFFERED=TRUE;

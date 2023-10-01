@@ -1,0 +1,41 @@
+SLURM_NTASKS = 1
+OMP_NUM_THREADS = 1
+MKL_NUM_THREADS = 1
+OPENBLAS_NUM_THREADS = 1
+PYSCF_MAX_MEMORY = 256000
+ 
+:: initializing oneAPI environment ...
+   slurm_script: BASH_VERSION = 4.2.46(1)-release
+   args: Using "$@" for setvars.sh arguments: --force
+:: advisor -- latest
+:: ccl -- latest
+:: clck -- latest
+:: compiler -- latest
+:: dal -- latest
+:: debugger -- latest
+:: dev-utilities -- latest
+:: dnnl -- latest
+:: dpcpp-ct -- latest
+:: dpl -- latest
+:: inspector -- latest
+:: intelpython -- latest
+:: ipp -- latest
+:: ippcp -- latest
+:: ipp -- latest
+:: itac -- latest
+:: mkl -- latest
+:: mpi -- latest
+:: tbb -- latest
+:: vpl -- latest
+:: vtune -- latest
+:: oneAPI environment initialized ::
+ 
+TMPDIR=/scratch/global/yangjunjie/./epcc-e1-p6-h3//e0-p3-h3/-515606/
+/home/yangjunjie/work/wick-work-main/work/epcc-e1-p6-h3/e0-p3-h3
+Finishing Building Hamiltonian....
+Finishing Building T....
+Finishing Building Hbar....
+Finishing Building bra....
+Finishing Initialization....
+Number of terms in amplitude   =  13
+Number of terms of Hbar        =  4

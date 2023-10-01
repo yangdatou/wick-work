@@ -26,10 +26,10 @@ submit() {
                 cp ../../../src/main.py .
                 cp ../../../src/run.sh  .
 
-                echo "python main.py --bra_e_order=$ie --bra_p_order=$ip --max_h_order=$ih --amp_p_order=$amp_p_order" >> run.sh
+                echo "python main.py --bra_e_order=$ie --bra_p_order=$ip --com_h_order=$ih --amp_p_order=$amp_p_order" >> run.sh
 
                 # Uncomment and modify the following line to submit the job
-                # sbatch --partition=serial --time=120:00:00 --job-name=$method run.sh
+                sbatch --partition=serial --time=120:00:00 --job-name=$workdir run.sh
 
                 cd - || exit 1
             done
