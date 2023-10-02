@@ -14,28 +14,20 @@ submit() {
             for ih in $(seq 0 $max_h_order); do
                 local workdir="${epccdir}/e${ie}-p${ip}-h${ih}/"
 
-                # if [ -d "$workdir" ]; then
-                #     echo "workdir=$workdir exists, will be removed"
-                #     rm -rf "$workdir"
-                # fi
+                if [ -d "$workdir" ]; then
+                    echo "workdir=$workdir exists, will be removed"
+                    rm -rf "$workdir"
+                fi
 
-                # mkdir -p "$workdir" || exit 1
+                mkdir -p "$workdir" || exit 1
 
                 cd "$workdir" || exit 1
 
                 cp ../../../src/main.py .
-                # cp ../../../src/run.sh  .
+                cp ../../../src/run.sh  .
 
-                # echo "python main.py --bra_e_order=$ie --bra_p_order=$ip --com_h_order=$ih --amp_p_order=$amp_p_order" >> run.sh
-
-                # Uncomment and modify the following line to submit the job
-                # if the Error message is found in slurm-* file, remove the file, and resubmit the job
-                if grep -q "TypeError" slurm-*; then
-                    rm -f slurm-*
-                    echo "Deleted: slurm"
-
-                    sbatch --partition=debug --time=01:00:00 --job-name=$workdir run.sh
-                fi
+                echo "python main.py --bra_e_order=$ie --bra_p_order=$ip --com_h_order=$ih --amp_p_order=$amp_p_order" >> run.sh
+                sbatch --partition=debug --time=01:00:00 --job-name=$workdir run.sh
 
                 cd - || exit 1
             done
@@ -43,7 +35,8 @@ submit() {
     done
 }
 
-submit 2 3
-submit 4 3
-submit 6 3
-submit 8 3
+submit 1 3
+# submit 2 3
+# submit 4 3
+# submit 6 3
+# submit 8 3
