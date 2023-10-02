@@ -30,9 +30,9 @@ submit() {
 
                 # Uncomment and modify the following line to submit the job
                 # if the Error message is found in slurm-* file, remove the file, and resubmit the job
-                if grep -q "TypeError" "$file"; then
-                    rm -f "$file"
-                    echo "Deleted: $file"
+                if grep -q "TypeError" slurm-*; then
+                    rm -f slurm-*
+                    echo "Deleted: slurm"
 
                     sbatch --partition=debug --time=01:00:00 --job-name=$workdir run.sh
                 fi

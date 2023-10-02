@@ -342,7 +342,7 @@ def main(amp_p_order=2, com_h_order=0,
     if bra_p_order == 0:
         if bra_e_order <= 1:
             if bra_e_order == 1:
-                bra = BraE1(bra_e_order)
+                bra = BraE1("occ", "vir")
         else:
             raise Exception("bra_e_order must be 0 or 1")
         
