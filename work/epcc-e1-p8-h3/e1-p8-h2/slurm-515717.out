@@ -30,13 +30,12 @@ PYSCF_MAX_MEMORY = 256000
 :: vtune -- latest
 :: oneAPI environment initialized ::
  
-TMPDIR=/scratch/global/yangjunjie/./epcc-e1-p8-h3//e0-p8-h1/-515680/
-/home/yangjunjie/work/wick-work-main/work/epcc-e1-p8-h3/e0-p8-h1
+TMPDIR=/scratch/global/yangjunjie/./epcc-e1-p8-h3//e1-p8-h2/-515717/
+/home/yangjunjie/work/wick-work-main/work/epcc-e1-p8-h3/e1-p8-h2
 Finishing Building Hamiltonian....
 Finishing Building T....
 Finishing Building Hbar....
 Finishing Building bra....
 Finishing Initialization....
 Number of terms in amplitude   =  17
-Number of terms of Hbar        =  2
-slurmstepd: error: *** JOB 515680 ON pauling007 CANCELLED AT 2023-10-08T04:56:49 DUE TO TIME LIMIT ***
+Number of terms of Hbar        =  3
