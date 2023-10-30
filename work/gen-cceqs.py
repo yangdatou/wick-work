@@ -105,12 +105,15 @@ def einsum_str(t_obj):
     for tensor in t_obj.tensors:
         if not tensor.name:  # Part of final string index
             final_str += tensor._istr(imap)
-        else:
-            name = ", " + (space_idx_formatter(
-                tensor.name, [idx.space for idx in tensor.indices]) \
-                    if "amp" not in tensor.name else tensor.name
-                )
-            tensor_str += name
+        else:   
+            if "amp" in tensor.name or "lam" in tensor.name:
+                name_with_space = tensor.name
+            elif "delta" in tensor.name:
+                name_with_space = space_idx_formatter("cc_obj." + tensor.name, [idx.space for idx in tensor.indices])
+            else:
+                name_with_space = space_idx_formatter(tensor.name, [idx.space for idx in tensor.indices])
+
+            tensor_str += ", " + name_with_space
             index_str += tensor._istr(imap) + ","
 
     einsum_input = f"'{index_str[:-1]}->{final_str}'"
@@ -129,7 +132,7 @@ def print_einsum(expr_obj):
     return "\n".join(equations)
 
 
-def gen_einsum_fxn(expr, name_str, comment=None):
+def gen_einsum_fxn(expr, name_str, function_lines=None, comment=None):
     """Generate Python function for numpy einsum based on expression and write to file.
 
     Args:
@@ -143,7 +146,8 @@ def gen_einsum_fxn(expr, name_str, comment=None):
     """
 
     # Construct the function string
-    function_lines = [f"def {name_str}(cc_obj, amp):"]
+    if function_lines is None:
+        function_lines = [f"def {name_str}(cc_obj, amp):"]
     
     if comment:
         function_lines.append(PYTHON_FILE_TAB + '"""')
@@ -155,7 +159,7 @@ def gen_einsum_fxn(expr, name_str, comment=None):
 
     return '\n'.join(function_lines)
 
-def PN(ph_max, name):
+def PN(ph_max, name, is_cre=True):
     """
     Return the tensor representation of a Boson ph_max-excitation operator for spaces=["mn"]
 
@@ -185,7 +189,7 @@ def PN(ph_max, name):
     tensors = [Tensor(indices, name, sym=sym)]
 
     # Define the Boson operators for each index
-    operators = [BOperator(idx, True) for idx in indices]
+    operators = [BOperator(idx, is_cre) for idx in indices]
 
     # Compute the prefactor as 1 over factorial of ph_max
     s = Fraction(1, factorial(ph_max))
@@ -200,7 +204,7 @@ def PN(ph_max, name):
     return Expression(terms)
 
 
-def PNE1(ph_max, name):
+def PNE1(ph_max, name, is_cre=True):
     """
     Return the tensor representation of a coupled Fermion-ph_max Boson excitation operator
     for bspaces=["mn"], ospaces=["ij"], and vspaces=["ab"].
@@ -214,6 +218,13 @@ def PNE1(ph_max, name):
     - Expression: Representation of the coupled Fermion-ph_max Boson excitation operator.
     """
 
+    if is_cre:
+        ospace=["occ"]
+        vspace=["vir"]
+    else:
+        ospace=["vir"]
+        vspace=["occ"]
+
     # List to store the terms of the operator
     terms = []
 
@@ -226,8 +237,8 @@ def PNE1(ph_max, name):
     b_indices = [Idx(i, "nm", fermion=False) for i in range(ph_max)]
 
     # Create the Fermion indices
-    i = Idx(0, "occ")
-    a = Idx(0, "vir")
+    i = Idx(0, ospace[0])
+    a = Idx(0, vspace[0])
 
     # Combine all indices
     all_indices = b_indices + [a, i]
@@ -239,7 +250,7 @@ def PNE1(ph_max, name):
     tensors = [Tensor(all_indices, name, sym=sym)]
 
     # Define the Boson and Fermion operators for each index
-    operators = [BOperator(idx, True) for idx in b_indices] + [FOperator(a, True), FOperator(i, False)]
+    operators = [BOperator(idx, is_cre) for idx in b_indices] + [FOperator(a, True), FOperator(i, False)]
 
     # Compute the prefactor as 1 over factorial of ph_max
     s = Fraction(1, factorial(ph_max))
@@ -314,7 +325,7 @@ def BraPNE1(ph_max):
     # Return the entire expression for the operator
     return Expression([term])
 
-def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
+def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4, h_and_bra=None):
     name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
 
     log = sys.stdout
@@ -421,11 +432,212 @@ def gen_epcc_eqs(with_h2e=False, elec_order=2, ph_order=1, hbar_order=4):
     with open(name + ".py", "w") as f:
         f.write(res)
 
+def gen_epcc_eqs_terms(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list=None, ibra_list=None):
+    name = "cc_e%d_p%d_h%d" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
+
+    log = sys.stdout
+
+    H1e   = one_e("cc_obj.h1e", ["occ", "vir"], norder=True)
+    H2e   = two_e("cc_obj.h2e", ["occ", "vir"], norder=True, compress=True)
+    H1p   = one_p("cc_obj.h1p_eff") + two_p("cc_obj.h1p")
+    H1p1e = ep11("cc_obj.h1p1e", ["occ", "vir"], ["nm"], norder=True)
+    H = H1e + H1p + H1p1e if not with_h2e else H1e + H2e + H1p + H1p1e
+
+    log.write("Finishing Building Hamiltonian....\n")
+    log.flush()
+
+    bra_list = []
+    if elec_order == 1:
+        T = E1("amp[0]", ["occ"], ["vir"])
+        bra_list += [braE1("occ", "vir")]
+
+    elif elec_order == 2:
+        T = E1("amp[0]", ["occ"], ["vir"]) + E2("amp[1]", ["occ"], ["vir"])
+        bra_list += [braE1("occ", "vir"), braE2("occ", "vir", "occ", "vir")]
+
+    else:
+        raise Exception("elec_order must be 1 or 2")
+
+    for i in range(ph_order):
+        T += PN(i+1, "amp[%d]" % (elec_order + 2 * i))
+        T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i + 1))
+
+    amp_info = term_info(T)
+    log.write("Finishing Building T....\n")
+    log.flush()
+
+    Hbar = [H]
+    for ihbar in range(1, hbar_order + 1):
+        hbar = commute(Hbar[-1], T) * Fraction(1, ihbar)
+        Hbar.append(hbar)
+
+    log.write("Finishing Building Hbar....\n")
+    log.flush()
+
+    for i in range(1, ph_order + 1):
+        bra_list.append(BraPN(i))
+        bra_list.append(BraPNE1(i))
+    bra_list += [None]
+
+    log.write("Finishing Initialization....\n")
+    log.write("Number of terms in amplitude   = % 2d\n" % (len(T.terms)))
+    log.write("Number of terms of bra_list    = % 2d\n" % (len(bra_list)))
+    log.write("Number of terms of Hbar        = % 2d\n" % (len(Hbar)))
+    
+    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
+
+    func_list = []
+
+    # Iterate over bra_list and Hbar
+    for ibra, bra in enumerate(bra_list):
+        if ibra not in ibra_list:
+            continue
+
+        if bra is not None:
+            func_name = f"res_ibra_{ibra}"
+        else:
+            func_name = "ene"
+
+        expr = AExpression()
+        is_expr_converged = False
+
+        for ih, h in enumerate(Hbar):
+            if ih not in ih_list:
+                continue
+
+            log.write("\n\nGenerating %s.%s ..." % (name, func_name))
+            
+            comment = get_info() + "\n" + amp_info 
+            if "res" in func_name:
+                comment += PYTHON_FILE_TAB + "res   : %s" % term_info(bra, name=None)
+
+            expr_ih = AExpression()
+
+            if bra is not None:
+                out = apply_wick(bra * h)
+            else:
+                out = apply_wick(h)
+            out.resolve()
+
+            tmp = AExpression(Ex=out)
+            final += tmp
+
+            # Logging details
+            comment_line = "ih = %d, ibra = %d, len(tmp.terms) = %d" % (ih, ibra, len(tmp.terms))
+            comment += "\n" + PYTHON_FILE_TAB + comment_line
+            log.write("\n" + comment_line)
+
+            if len(tmp.terms) == 0 and ih > 0:
+                is_converged = True
+                break
+
+        if not is_converged:
+            log.write("\nibra = %d, is not converged up to hbar_order = %d\n" % (ibra, hbar_order))
+            comment += "\n\n" + PYTHON_FILE_TAB + "NOTE: the equation is not truncted."
+
+        func_list.append(
+            gen_einsum_fxn(
+                final, func_name, comment=comment
+            )
+        )
+
+    res += "\n" + '\n\n'.join(func_list) + "\n"
+    log.write("\n\n" + res)
+
+    with open(name + ".py", "w") as f:
+        f.write(res)
+
+def gen_expt_eqs(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list=None, ibra_list=None):
+    name = "cc_e%d_p%d_h%d_expt" % (elec_order, ph_order, hbar_order) + ("_with_h2e" if with_h2e else "_no_h2e")
+
+    log = sys.stdout
+    log.write("Finishing Building Hamiltonian....\n")
+    log.flush()
+
+    bra_list = []
+    if elec_order == 1:
+        T = E1("amp[0]", ["occ"], ["vir"])
+        L = E1("lam[0]", ["vir"], ["occ"])
+
+    elif elec_order == 2:
+        raise Exception("elec_order must be 1 or 2")
+
+    for i in range(ph_order):
+        T += PN(i+1, "amp[%d]" % (elec_order + 2 * i))
+        T += PNE1(i+1, "amp[%d]" % (elec_order + 2 * i + 1))
+
+        L += PN(i+1, "lam[%d]" % (elec_order + 2 * i), is_cre=False)
+        L += PNE1(i+1, "lam[%d]" % (elec_order + 2 * i + 1), is_cre=False)
+
+    amp_info = term_info(T)
+    lam_info = term_info(L)
+    log.write("Finishing Building T....\n")
+    log.flush()
+
+    # ov block
+    i = Idx(0, "occ")
+    a = Idx(0, "vir")
+    j = Idx(1, "occ")
+    b = Idx(1, "vir")
+    x = Idx(0, "nm", fermion=False)
+    y = Idx(1, "nm", fermion=False)
+
+    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
+    func_list = []
+
+    def gen(pp0, func_name):
+        pp = [pp0]
+        mid = pp0
+        for ipbar in range(1, hbar_order):
+            pbar = commute(pp[-1], T) * Fraction(1, ipbar)
+            pp.append(pbar)
+            mid += pbar
+
+        full = L * mid
+        out  = apply_wick(full)
+        out.resolve()
+        final = AExpression(Ex=out)
+
+        comment = get_info() + "\n" + amp_info + lam_info
+        # comment += PYTHON_FILE_TAB + "mid   : %s" % term_info(mid, name=None)
+
+        return gen_einsum_fxn(
+            final, func_name, comment=comment,
+            function_lines=["def %s(cc_obj=None, amp=None, lam=None):" % func_name]
+        )
+    
+    operators = [BOperator(x, True), BOperator(y, False)]
+    ppbar = Expression([Term(1, [], [Tensor([x, y], "")], operators, [])])
+    func_list.append(gen(ppbar, "exp_nb"))
+
+    for ii in [(a, i), (i, a), (i, j), (a, b)]:
+        space = ii[0].space[0] + ii[1].space[0]
+        func_name = f"exp_na_{space}"
+
+        operators = [FOperator(ii[0], True), FOperator(ii[1], False)]
+        ppbar = Expression([Term(1, [], [Tensor([ii[1], ii[0]], "")], operators, [])])
+        func_list.append(gen(ppbar, func_name))
+
+        operators = [FOperator(ii[0], True), FOperator(ii[1], False), BOperator(x, True)]
+        ppbar = Expression([Term(1, [], [Tensor([ii[1], ii[0], x], "")], operators, [])])
+        operators = [FOperator(ii[0], True), FOperator(ii[1], False), BOperator(x, False)]
+        ppbar += Expression([Term(1, [], [Tensor([ii[1], ii[0], x], "")], operators, [])])
+        func_name = f"exp_na_{space}_xb"
+        func_list.append(gen(ppbar, func_name))
+
+    res += "\n" + '\n\n'.join(func_list) + "\n"
+    log.write("\n\n" + res)
+
+    with open(name + ".py", "w") as f:
+        f.write(res)
+
+
 if __name__ == "__main__":
     elec_order = int(sys.argv[1])
     ph_order   = int(sys.argv[2])
     hbar_order = int(sys.argv[3])
     with_h2e   = bool(int(sys.argv[4]))
 
-    gen_epcc_eqs(elec_order=elec_order, ph_order=ph_order, hbar_order=hbar_order, with_h2e=with_h2e)
+    # gen_epcc_eqs(elec_order=elec_order, ph_order=ph_order, hbar_order=hbar_order, with_h2e=with_h2e)
+    gen_expt_eqs(elec_order=elec_order, ph_order=ph_order, hbar_order=hbar_order, with_h2e=with_h2e)
 
