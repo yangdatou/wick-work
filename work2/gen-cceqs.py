@@ -556,8 +556,8 @@ def gen_expt_eqs(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list
 
     if elec_order == 1:
         T  = E1("amp[0]",  ["occ"], ["vir"])
-        T += PN(1, "cc_obj.xi")
-        T -= PN(1, "cc_obj.xi", is_cre=False)
+        # T += PN(1, "cc_obj.xi")
+        # T -= PN(1, "cc_obj.xi", is_cre=False)
         L  = E1("lam[0]",  ["vir"], ["occ"])
 
     elif elec_order == 2:
@@ -583,7 +583,7 @@ def gen_expt_eqs(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list
     x = Idx(0, "nm", fermion=False)
     y = Idx(1, "nm", fermion=False)
 
-    res = "" # "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
+    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
     func_list = []
 
     def gen(pp0, func_name):
@@ -606,13 +606,17 @@ def gen_expt_eqs(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list
             final, func_name, comment=comment,
             function_lines=["def %s(cc_obj=None, amp=None, lam=None):" % func_name]
         )
-    
+
     operators = [BOperator(x, True), BOperator(y, False)]
     ppbar = Expression([Term(1, [], [Tensor([x, y], "")], operators, [])])
     func_list.append(gen(ppbar, f"exp_nb_{hbar_order}"))
 
+    ppbar  = Expression([Term(1, [], [Tensor([x], "")], [BOperator(x, True)], [])])
+    ppbar += Expression([Term(1, [], [Tensor([x], "")], [BOperator(x, False)], [])])
+    func_list.append(gen(ppbar, f"exp_xb_{hbar_order}"))
+
     for ii in [(a, i), (i, a), (i, j), (a, b)]:
-        space = ii[0].space[0] + ii[1].space[0]
+        space = ii[1].space[0] + ii[0].space[0]
         func_name = f"exp_na_{space}_{hbar_order}"
 
         operators = [FOperator(ii[0], True), FOperator(ii[1], False)]
