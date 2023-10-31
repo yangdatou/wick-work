@@ -50,6 +50,7 @@ export PYTHONUNBUFFERED=TRUE;
 time python gen-cceqs.py 1 1 2 0 > $LOG_TMPDIR/1120.log
 time python gen-cceqs.py 1 1 4 0 > $LOG_TMPDIR/1140.log
 time python gen-cceqs.py 1 1 6 0 > $LOG_TMPDIR/1160.log
+time python gen-cceqs.py 1 1 8 0 > $LOG_TMPDIR/1180.log
 
 time python gen-cceqs.py 1 2 2 0 > $LOG_TMPDIR/1220.log
 time python gen-cceqs.py 1 2 4 0 > $LOG_TMPDIR/1240.log
