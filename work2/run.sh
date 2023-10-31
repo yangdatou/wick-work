@@ -47,14 +47,14 @@ export PYTHONUNBUFFERED=TRUE;
 # time python gen-cceqs.py 1 6 3 0 > $LOG_TMPDIR/1630.log
 # time python gen-cceqs.py 1 8 3 0 > $LOG_TMPDIR/1830.log
 
-time python gen-cceqs.py 1 1 2 0 > $LOG_TMPDIR/1120.log
-time python gen-cceqs.py 1 2 2 0 > $LOG_TMPDIR/1220.log
-time python gen-cceqs.py 1 4 2 0 > $LOG_TMPDIR/1420.log
-
+time python gen-cceqs.py 1 1 3 0 > $LOG_TMPDIR/1130.log
 time python gen-cceqs.py 1 1 4 0 > $LOG_TMPDIR/1140.log
-time python gen-cceqs.py 1 2 4 0 > $LOG_TMPDIR/1240.log
-time python gen-cceqs.py 1 4 4 0 > $LOG_TMPDIR/1440.log
+time python gen-cceqs.py 1 1 5 0 > $LOG_TMPDIR/1150.log
 
-time python gen-cceqs.py 1 1 6 0 > $LOG_TMPDIR/1160.log
-time python gen-cceqs.py 1 2 6 0 > $LOG_TMPDIR/1260.log
-time python gen-cceqs.py 1 4 6 0 > $LOG_TMPDIR/1460.log
+time python gen-cceqs.py 1 2 3 0 > $LOG_TMPDIR/1230.log
+time python gen-cceqs.py 1 2 4 0 > $LOG_TMPDIR/1240.log
+time python gen-cceqs.py 1 2 5 0 > $LOG_TMPDIR/1250.log
+
+time python gen-cceqs.py 1 4 3 0 > $LOG_TMPDIR/1430.log
+time python gen-cceqs.py 1 4 4 0 > $LOG_TMPDIR/1440.log
+time python gen-cceqs.py 1 4 5 0 > $LOG_TMPDIR/1450.log
