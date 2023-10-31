@@ -14,14 +14,20 @@ def exp_nb_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('I,J->IJ'           , lam[1], amp[1])
     res +=     1.000000 * einsum('I,J->IJ'           , lam[1], cc_obj.xi)
+    res +=     1.000000 * einsum('IJ,JK->IK'         , lam[3], amp[3])
     res +=     1.000000 * einsum('Iia,Jai->IJ'       , lam[2], amp[2])
+    res +=     1.000000 * einsum('IJia,JKai->IK'     , lam[4], amp[4])
     return res
 
 def exp_na_vo_2(cc_obj=None, amp=None, lam=None):
@@ -37,9 +43,13 @@ def exp_na_vo_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('ia->ia'            , lam[0])
@@ -58,14 +68,19 @@ def exp_na_vo_xb_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('Iia->iaI'          , lam[2])
     res +=     1.000000 * einsum('ia,I->iaI'         , lam[0], amp[1])
     res +=     2.000000 * einsum('ia,I->iaI'         , lam[0], cc_obj.xi)
+    res +=     1.000000 * einsum('Iia,IJ->iaJ'       , lam[2], amp[3])
     return res
 
 def exp_na_ov_2(cc_obj=None, amp=None, lam=None):
@@ -81,13 +96,18 @@ def exp_na_ov_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('ai->ai'            , amp[0])
     res +=     1.000000 * einsum('I,Iai->ai'         , lam[1], amp[2])
+    res +=     0.500000 * einsum('IJ,IJai->ai'       , lam[3], amp[4])
     return res
 
 def exp_na_ov_xb_2(cc_obj=None, amp=None, lam=None):
@@ -103,13 +123,19 @@ def exp_na_ov_xb_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('Iai->aiI'          , amp[2])
     res +=     1.000000 * einsum('I,ai->aiI'         , lam[1], amp[0])
+    res +=     1.000000 * einsum('I,IJai->aiJ'       , lam[1], amp[4])
+    res +=     1.000000 * einsum('IJ,Jai->aiI'       , lam[3], amp[2])
     return res
 
 def exp_na_oo_2(cc_obj=None, amp=None, lam=None):
@@ -125,14 +151,19 @@ def exp_na_oo_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('ji->ij'            , cc_obj.delta.oo)
     res +=    -1.000000 * einsum('ia,aj->ij'         , lam[0], amp[0])
     res +=    -1.000000 * einsum('Iia,Iaj->ij'       , lam[2], amp[2])
+    res +=    -0.500000 * einsum('IJia,IJaj->ij'     , lam[4], amp[4])
     return res
 
 def exp_na_oo_xb_2(cc_obj=None, amp=None, lam=None):
@@ -148,9 +179,13 @@ def exp_na_oo_xb_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('I,ji->ijI'         , lam[1], cc_obj.delta.oo)
@@ -158,7 +193,11 @@ def exp_na_oo_xb_2(cc_obj=None, amp=None, lam=None):
     res +=     2.000000 * einsum('I,ji->ijI'         , cc_obj.xi, cc_obj.delta.oo)
     res +=    -1.000000 * einsum('ia,Iaj->ijI'       , lam[0], amp[2])
     res +=    -1.000000 * einsum('Iia,aj->ijI'       , lam[2], amp[0])
+    res +=    -1.000000 * einsum('Iia,IJaj->ijJ'     , lam[2], amp[4])
+    res +=    -1.000000 * einsum('IJia,Jaj->ijI'     , lam[4], amp[2])
+    res +=     1.000000 * einsum('I,IJ,ji->ijJ'      , lam[1], amp[3], cc_obj.delta.oo)
     res +=     1.000000 * einsum('ia,Iai,kj->jkI'    , lam[0], amp[2], cc_obj.delta.oo)
+    res +=     1.000000 * einsum('Iia,IJai,kj->jkJ'  , lam[2], amp[4], cc_obj.delta.oo)
     return res
 
 def exp_na_vv_2(cc_obj=None, amp=None, lam=None):
@@ -174,13 +213,18 @@ def exp_na_vv_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('ia,bi->ba'         , lam[0], amp[0])
     res +=     1.000000 * einsum('Iia,Ibi->ba'       , lam[2], amp[2])
+    res +=     0.500000 * einsum('IJia,IJbi->ba'     , lam[4], amp[4])
     return res
 
 def exp_na_vv_xb_2(cc_obj=None, amp=None, lam=None):
@@ -196,11 +240,17 @@ def exp_na_vv_xb_2(cc_obj=None, amp=None, lam=None):
     cc_obj.xi: b
     amp[1]: b+
     amp[2]: b+ a+_v a_o
+    amp[3]: b+ b+
+    amp[4]: b+ b+ a+_v a_o
     lam[0]: a+_o a_v
     lam[1]: b
     lam[2]: b a+_o a_v
+    lam[3]: b b
+    lam[4]: b b a+_o a_v
 
     """
     res  =     1.000000 * einsum('ia,Ibi->baI'       , lam[0], amp[2])
     res +=     1.000000 * einsum('Iia,bi->baI'       , lam[2], amp[0])
+    res +=     1.000000 * einsum('Iia,IJbi->baJ'     , lam[2], amp[4])
+    res +=     1.000000 * einsum('IJia,Jbi->baI'     , lam[4], amp[2])
     return res

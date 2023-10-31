@@ -583,7 +583,7 @@ def gen_expt_eqs(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list
     x = Idx(0, "nm", fermion=False)
     y = Idx(1, "nm", fermion=False)
 
-    res = "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
+    res = "" # "import numpy, functools\neinsum = functools.partial(numpy.einsum, optimize=True)\n"
     func_list = []
 
     def gen(pp0, func_name):
