@@ -554,10 +554,11 @@ def gen_expt_eqs(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list
     log.write("Finishing Building Hamiltonian....\n")
     log.flush()
 
-    bra_list = []
     if elec_order == 1:
-        T = E1("amp[0]", ["occ"], ["vir"])
-        L = E1("lam[0]", ["vir"], ["occ"])
+        T  = E1("amp[0]",  ["occ"], ["vir"])
+        T += PN(1, "cc_obj.xi")
+        T -= PN(1, "cc_obj.xi", is_cre=False)
+        L  = E1("lam[0]",  ["vir"], ["occ"])
 
     elif elec_order == 2:
         raise Exception("elec_order must be 1 or 2")
@@ -593,13 +594,13 @@ def gen_expt_eqs(with_h2e=False, elec_order=1, ph_order=1, hbar_order=4, ih_list
             pp.append(pbar)
             mid += pbar
 
-        full = L * mid
+        full = mid + L * mid
         out  = apply_wick(full)
         out.resolve()
         final = AExpression(Ex=out)
 
         comment = get_info() + "\n" + amp_info + lam_info
-        # comment += PYTHON_FILE_TAB + "mid   : %s" % term_info(mid, name=None)
+        # comment += PYTHON_FILE_TAB # + "mid   : %s" % term_info(mid, name=None)
 
         return gen_einsum_fxn(
             final, func_name, comment=comment,
