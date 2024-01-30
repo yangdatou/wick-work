@@ -106,7 +106,7 @@ def einsum_str(t_obj):
             elif "delta" in tensor.name:
                 name_with_space = space_idx_formatter("cc_obj." + tensor.name, [idx.space for idx in tensor.indices])
             else:
-                name_with_space = space_idx_formatter(tensor.name, [idx.space for idx in tensor.indices])
+                name_with_space = space_idx_formatter("cc_obj." + tensor.name, [idx.space for idx in tensor.indices])
 
             tensor_str += ", " + name_with_space
             index_str += tensor._istr(imap) + ","
@@ -122,7 +122,7 @@ def PhysNotaERIs(name, spaces, norder=False):
         # Count how many times each space appears
         inds = [Idx(sum(s == si for s in ss[:i]), si) for i, si in enumerate(ss)]
         p, q, r, s = inds
-        fops = [FOperator(p, 1), FOperator(q, 1), FOperator(r, 0), FOperator(s, 0)]
+        fops = [FOperator(p, 1), FOperator(q, 1), FOperator(s, 0), FOperator(r, 0)]
 
         sign = 1
         if norder:
@@ -147,7 +147,7 @@ def ChemNotaERIs(name, spaces, norder=False):
         # Count how many times each space appears
         inds = [Idx(sum(s == si for s in ss[:i]), si) for i, si in enumerate(ss)]
         p, q, r, s = inds
-        fops = [FOperator(p, 1), FOperator(r, 1), FOperator(q, 0), FOperator(s, 0)]
+        fops = [FOperator(p, 1), FOperator(r, 1), FOperator(s, 0), FOperator(q, 0)]
 
         sign = 1
         if norder:
@@ -155,7 +155,7 @@ def ChemNotaERIs(name, spaces, norder=False):
 
         terms.append(
             Term(
-                sign * Fraction(1, 8),         # The scalar factor
+                sign * Fraction(1, 2),         # The scalar factor
                 list(map(Sigma, inds)), # The summed indices
                 [Tensor(inds, name, sym=sym)], # The tensor
                 fops, [] # The operators and the bra.
@@ -165,22 +165,22 @@ def ChemNotaERIs(name, spaces, norder=False):
     return Expression(terms)
 
 def gen_ccsd_equation(hbar_order=4, eri="chem"):
-    name = "ccsd_with_%s" % eri
-    if name in ["chem", "phys"]:
-        name += "_eri"
+    name = "%s" % eri
+    if eri in ["chem", "phys"]:
+        name += "_eris"
 
     log = sys.stdout
 
     s = ["occ", "vir"]
     H = one_e("h1e", s, norder=True)
     if eri == "phys":
-        H += PhysNotaERIs("phys_eris", s, norder=True)
+        H += PhysNotaERIs(name, s, norder=True)
     elif eri == "chem":
-        H += ChemNotaERIs("chem_eris", s, norder=True)
+        H += ChemNotaERIs(name, s, norder=True)
     else:
         raise NotImplementedError
 
-    log.write("Finishing Building Hamiltonian....\n")
+    log.write("\n\nFinishing Building Hamiltonian....\n")
     log.flush()
 
     T  = E1("amp[0]", [s[0]], [s[1]]) 
@@ -200,7 +200,7 @@ def gen_ccsd_equation(hbar_order=4, eri="chem"):
     log.write("Finishing Building Hbar....\n")
     log.flush()
 
-    with open(name + ".py", "w") as f:
+    with open("ccsd_with_" + name + ".py", "w") as f:
         # Iterate over bra_list and Hbar
         for ibra, bra in enumerate(bra_list):
             if bra is None:
@@ -208,7 +208,11 @@ def gen_ccsd_equation(hbar_order=4, eri="chem"):
             else:
                 func_name = f"resd{ibra}"
 
-            lines  = ["def %s(cc_obj, amp):" % func_name]
+            if ibra == 0:
+                lines  = ["def %s(cc_obj, amp):" % func_name]
+            else:
+                lines  = ["\n\ndef %s(cc_obj, amp):" % func_name]
+
             lines += [PYTHON_FILE_TAB + "\"\"\"\n" + PYTHON_FILE_TAB + get_info() + "\n" + amp_info + PYTHON_FILE_TAB]
             if "res" in func_name:
                 lines.append(PYTHON_FILE_TAB + "res   : %s" % term_info(bra, name=None))
@@ -246,8 +250,9 @@ def gen_ccsd_equation(hbar_order=4, eri="chem"):
 
             lines += [PYTHON_FILE_TAB + "return res"]
             f.write("\n".join(lines))
+            f.flush()
 
 
 if __name__ == "__main__":
     gen_ccsd_equation(hbar_order=4, eri="phys")
-
+    gen_ccsd_equation(hbar_order=4, eri="chem")

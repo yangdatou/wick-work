@@ -112,7 +112,7 @@ class NewtonKrylov(CoupledClusterAmplitudeSolverMixin):
         self.is_converged = (numpy.linalg.norm(res) < self.conv_tol)
 
         # Return the final total energy, correlation energy, and amplitudes
-        return ene_sol, ene_sol - ene_hf, amp_sol
+        return ene_sol, ene_sol + ene_hf, amp_sol
     
 class FromPySCF(CoupledClusterAmplitudeSolverMixin):
     def __init__(self, mf):
