@@ -113,7 +113,7 @@ class WithPhysERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
         cc_obj.phys_eris = H2eBlocks()
         cc_obj.phys_eris.__dict__.update(h2e)
 
-        from opt_einsum import contract
+        from opt_einsum import contract, shared_intermediates
         cc_obj.einsum = contract
 
         global iter_cc
@@ -126,9 +126,10 @@ class WithPhysERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
         def func(vec, verbose=True):
             amp = self.vec_to_amp(vec)
 
-            ene = ecorr(cc_obj=cc_obj, amp=amp)
-            r1e = resd1(cc_obj=cc_obj, amp=amp)
-            r2e = resd2(cc_obj=cc_obj, amp=amp)
+            with shared_intermediates():
+                ene = ecorr(cc_obj=cc_obj, amp=amp)
+                r1e = resd1(cc_obj=cc_obj, amp=amp)
+                r2e = resd2(cc_obj=cc_obj, amp=amp)
             res = self.res_to_vec((r1e, r2e))
 
             if verbose:
@@ -195,7 +196,7 @@ class WithChemERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
         cc_obj.chem_eris = H2eBlocks()
         cc_obj.chem_eris.__dict__.update(h2e)
 
-        from opt_einsum import contract
+        from opt_einsum import contract, shared_intermediates
         cc_obj.einsum = contract
 
         global iter_cc
@@ -208,9 +209,10 @@ class WithChemERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
         def func(vec, verbose=True):
             amp = self.vec_to_amp(vec)
 
-            ene = ecorr(cc_obj=cc_obj, amp=amp)
-            r1e = resd1(cc_obj=cc_obj, amp=amp)
-            r2e = resd2(cc_obj=cc_obj, amp=amp)
+            with shared_intermediates():
+                ene = ecorr(cc_obj=cc_obj, amp=amp)
+                r1e = resd1(cc_obj=cc_obj, amp=amp)
+                r2e = resd2(cc_obj=cc_obj, amp=amp)
             res = self.res_to_vec((r1e, r2e))
 
             if verbose:
