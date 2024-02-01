@@ -87,7 +87,7 @@ def term_info(expr, name=None):
 def space_idx_formatter(name, space_list):
     """Format space index based on given rules."""
 
-    spaces = [space[0] for space in space_list if space != "nm"]
+    spaces = [space[0] for space in space_list if space != "aux"]
     return f"{name}." + "".join(spaces) if spaces else f"{name}"
 
 def einsum_str(t_obj):
@@ -97,14 +97,15 @@ def einsum_str(t_obj):
     scalar_str = f"{float(t_obj.scalar): 12.6f}"
     final_str, index_str, tensor_str = "", "", ""
 
-    for tensor in t_obj.tensors:
+    for tensor in t_obj.tensors:        
         if not tensor.name:  # Part of final string index
             final_str += tensor._istr(imap)
         else:   
+            if "(" in tensor.name and ")" in tensor.name:
+                tensor.name = tensor.name.split("(")[0]
+
             if "amp" in tensor.name or "lam" in tensor.name:
                 name_with_space = tensor.name
-            elif "delta" in tensor.name:
-                name_with_space = space_idx_formatter("cc_obj." + tensor.name, [idx.space for idx in tensor.indices])
             else:
                 name_with_space = space_idx_formatter("cc_obj." + tensor.name, [idx.space for idx in tensor.indices])
 
@@ -164,21 +165,89 @@ def ChemNotaERIs(name, spaces, norder=False):
 
     return Expression(terms)
 
-def gen_ccsd_equation(hbar_order=4, eri="chem"):
-    name = "%s" % eri
-    if eri in ["chem", "phys"]:
-        name += "_eris"
 
+def CholeskyERIs(name, spaces, norder=False):
+    terms = []
+    sym = TensorSym([(0, 1, 2), (0, 2, 1)], [1, 1])
+
+    for ss in product(spaces, repeat=4):
+        # Count how many times each space appears
+        inds = [Idx(sum(s == si for s in ss[:i]), si) for i, si in enumerate(ss)]
+        p, q, r, s = inds
+        P = Idx(0, "aux")
+        fops = [FOperator(p, 1), FOperator(r, 1), FOperator(s, 0), FOperator(q, 0)]
+
+        sign = 1
+        if norder:
+            fops, sign = normal_ordered(fops)
+
+        t = Term(0.5 * sign,  # The scalar factor
+                [Sigma(P), Sigma(p), Sigma(q), Sigma(r), Sigma(s)],
+                [Tensor([P, p, q], name + "(0)", sym=sym), Tensor([P, r, s], name + "(1)", sym=sym)], # The tensor
+                fops, []
+            )
+        t.index_key = {
+            "occ": "ijklmno",
+            "vir": "abcdefg",
+            "aux": "PQRSIJKL"
+            }
+
+        terms.append(t)
+
+    return Expression(terms)
+
+def TensorHyperContractionERIs(name, spaces, norder=False):
+    terms = []
+    sym = TensorSym([(0, 1), (1, 0)], [1, 1])
+    z = name[0]
+    x = name[1]
+
+    for ss in product(spaces, repeat=4):
+        # Count how many times each space appears
+        inds = [Idx(sum(s == si for s in ss[:i]), si) for i, si in enumerate(ss)]
+        p, q, r, s = inds
+        P = Idx(0, "aux")
+        Q = Idx(1, "aux")
+        fops = [FOperator(p, 1), FOperator(r, 1), FOperator(s, 0), FOperator(q, 0)]
+
+        sign = 1
+        if norder:
+            fops, sign = normal_ordered(fops)
+
+        t = Term(0.5,  # The scalar factor
+                [Sigma(P), Sigma(Q), Sigma(p), Sigma(q), Sigma(r), Sigma(s)],
+                [Tensor([P, p], x + "(0)"), Tensor([P, q], x + "(1)"),
+                 Tensor([Q, r], x + "(2)"), Tensor([Q, s], x + "(3)"),
+                 Tensor([P, Q], z, sym=sym)], # The tensor
+                fops, []
+            )
+        t.index_key = {
+            "occ": "ijklmno",
+            "vir": "abcdefg",
+            "aux": "PQRSIJKL"
+            }
+
+        terms.append(t)
+
+    return Expression(terms)
+
+def gen_ccsd_equation(hbar_order=4, eris="chem"):
     log = sys.stdout
 
+    name = "ccsd_with_" + eris
     s = ["occ", "vir"]
     H = one_e("h1e", s, norder=True)
-    if eri == "phys":
-        H += PhysNotaERIs(name, s, norder=True)
-    elif eri == "chem":
-        H += ChemNotaERIs(name, s, norder=True)
+
+    if eris == "phys":
+        H += PhysNotaERIs("phys", s, norder=True)
+    elif eris == "chem":
+        H += ChemNotaERIs("chem", s, norder=True)
+    elif eris == "chol":
+        H += CholeskyERIs("chol", s, norder=True)
+    elif eris == "thc":
+        H += TensorHyperContractionERIs(["thcz", "thcx"], s, norder=True)
     else:
-        raise NotImplementedError
+        raise NotImplementedError("%s not implemented" % eris)
 
     log.write("\n\nFinishing Building Hamiltonian....\n")
     log.flush()
@@ -200,7 +269,7 @@ def gen_ccsd_equation(hbar_order=4, eri="chem"):
     log.write("Finishing Building Hbar....\n")
     log.flush()
 
-    with open("ccsd_with_" + name + ".py", "w") as f:
+    with open("ccsd_with_" + eris + ".py", "w") as f:
         # Iterate over bra_list and Hbar
         for ibra, bra in enumerate(bra_list):
             if bra is None:
@@ -254,5 +323,7 @@ def gen_ccsd_equation(hbar_order=4, eri="chem"):
 
 
 if __name__ == "__main__":
-    gen_ccsd_equation(hbar_order=4, eri="phys")
-    gen_ccsd_equation(hbar_order=4, eri="chem")
+    gen_ccsd_equation(hbar_order=4, eris="phys")
+    gen_ccsd_equation(hbar_order=4, eris="chem")
+    gen_ccsd_equation(hbar_order=4, eris="chol")
+    gen_ccsd_equation(hbar_order=4, eris="thc")

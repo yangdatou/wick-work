@@ -12,6 +12,10 @@ T1 = E1("t", ["occ"], ["vir"])
 T2 = E2("t", ["occ"], ["vir"])
 T = T1 + T2
 
+print("T = ", T)
+assert 1 == 2
+
+
 HT = commute(H, T)
 HTT = commute(HT, T)
 HTTT = commute(HTT, T)

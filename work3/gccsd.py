@@ -1,3 +1,5 @@
+import numpy, scipy
+
 import pyscf
 from pyscf import gto, scf, lib
 from pyscf import cc as ccsd
@@ -99,7 +101,6 @@ class WithPhysERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
         eris += eri1
         eris += eri1.T
 
-        # TODO: transform into Chemist's index
         eris = ao2mo.restore(1, eris, norb).reshape(norb, norb, norb, norb)
         eris = eris.transpose(0, 2, 1, 3)
 
@@ -119,9 +120,9 @@ class WithPhysERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
         global iter_cc
         iter_cc = 0
 
-        from ccsd_with_phys_eris import ecorr
-        from ccsd_with_phys_eris import resd1
-        from ccsd_with_phys_eris import resd2
+        from ccsd_with_phys import ecorr
+        from ccsd_with_phys import resd1
+        from ccsd_with_phys import resd2
 
         def func(vec, verbose=True):
             amp = self.vec_to_amp(vec)
@@ -202,9 +203,9 @@ class WithChemERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
         global iter_cc
         iter_cc = 0
 
-        from ccsd_with_chem_eris import ecorr
-        from ccsd_with_chem_eris import resd1
-        from ccsd_with_chem_eris import resd2
+        from ccsd_with_chem import ecorr
+        from ccsd_with_chem import resd1
+        from ccsd_with_chem import resd2
 
         def func(vec, verbose=True):
             amp = self.vec_to_amp(vec)
@@ -227,6 +228,193 @@ class WithChemERIs(GeneralSpinCoupledClusterSingleDoubleFromWick):
             return ene, res
 
         return func
+
+class WithDensityFitting(GeneralSpinCoupledClusterSingleDoubleFromWick):           
+    def gen_func(self):
+        log = logger.new_logger(self)
+
+        _eris = self._base.ao2mo()
+        coeff = _eris.mo_coeff
+
+        nao, norb = coeff.shape
+        nocc = self._base.nocc
+        nvir = norb - nocc
+
+        # Note that the ERIs is modified
+        class CoupledClusterProblem(object):
+            pass
+
+        class H1eBlocks(object):
+            pass
+
+        class H2eBlocks(object):
+            pass
+
+        h1e = H1eBlocks()
+        h1e.oo = _eris.fock[:nocc, :nocc].copy()
+        h1e.vv = _eris.fock[nocc:, nocc:].copy()
+        h1e.ov = _eris.fock[:nocc, nocc:].copy()
+        h1e.vo = _eris.fock[nocc:, :nocc].copy()
+
+        from pyscf import ao2mo
+        assert self._base._scf._eri is not None
+        coeff_alph = coeff[:nao//2]
+        coeff_beta = coeff[nao//2:]
+        eris  = ao2mo.kernel(self._base._scf._eri, coeff_alph)
+        eris += ao2mo.kernel(self._base._scf._eri, coeff_beta)
+        eri1  = ao2mo.kernel(
+            self._base._scf._eri, 
+            (coeff_alph, coeff_alph, coeff_beta, coeff_beta)
+            )
+        eris += eri1
+        eris += eri1.T
+
+        eris = ao2mo.restore(1, eris, norb).reshape(norb * norb, norb * norb)
+        eigs, coef = scipy.linalg.eigh(eris)
+        naux = (eigs > 1e-5).sum()
+        chol = coef[:, -naux:] * eigs[-naux:]**0.5
+        chol = chol.T.reshape(naux, nao, nao)
+
+        h2e = {}
+        from itertools import product
+        for ss in product([("o", slice(0, nocc)), ("v", slice(nocc, norb))], repeat=2):
+            h2e["".join([s[0] for s in ss])] = chol[*([slice(0, naux)] + [s[1] for s in ss])]
+
+        cc_obj = CoupledClusterProblem()
+        cc_obj.h1e = h1e
+        cc_obj.chol = H2eBlocks()
+        cc_obj.chol.__dict__.update(h2e)
+
+        from opt_einsum import contract, contract_path
+        from opt_einsum import shared_intermediates
+        def einsum(*args):
+            path, path_info = contract_path(*args)
+            self.log.write(str(path_info) + "\n\n")
+            return contract(*args)
+
+        cc_obj.einsum = einsum
+
+        global iter_cc
+        iter_cc = 0
+
+        from ccsd_with_chol import ecorr
+        from ccsd_with_chol import resd1
+        from ccsd_with_chol import resd2
+
+        def func(vec, verbose=True):
+            amp = self.vec_to_amp(vec)
+            with shared_intermediates():
+                ene = ecorr(cc_obj=cc_obj, amp=amp)
+                r1e = resd1(cc_obj=cc_obj, amp=amp)
+                r2e = resd2(cc_obj=cc_obj, amp=amp)
+            res = self.res_to_vec((r1e, r2e))
+
+            if verbose:
+                global iter_cc
+                iter_cc += 1
+
+                log.info(
+                    'CCSD iter %4d, energy = %12.8f, residual = %12.4e',
+                    iter_cc, ene, numpy.linalg.norm(res)
+                    )
+
+            return ene, res
+
+        return func
+
+class WithTensorHyperConraction(GeneralSpinCoupledClusterSingleDoubleFromWick):           
+    def gen_func(self):
+        log = logger.new_logger(self)
+
+        _eris = self._base.ao2mo()
+        coeff = _eris.mo_coeff
+
+        nao, norb = coeff.shape
+        nocc = self._base.nocc
+        nvir = norb - nocc
+
+        # Note that the ERIs is modified
+        class CoupledClusterProblem(object):
+            pass
+
+        class H1eBlocks(object):
+            pass
+
+        class H2eBlocks(object):
+            pass
+
+        h1e = H1eBlocks()
+        h1e.oo = _eris.fock[:nocc, :nocc].copy()
+        h1e.vv = _eris.fock[nocc:, nocc:].copy()
+        h1e.ov = _eris.fock[:nocc, nocc:].copy()
+        h1e.vo = _eris.fock[nocc:, :nocc].copy()
+
+        from pyscf import ao2mo
+        assert self._base._scf._eri is not None
+        coeff_alph = coeff[:nao//2]
+        coeff_beta = coeff[nao//2:]
+        eris  = ao2mo.kernel(self._base._scf._eri, coeff_alph)
+        eris += ao2mo.kernel(self._base._scf._eri, coeff_beta)
+        eri1  = ao2mo.kernel(
+            self._base._scf._eri, 
+            (coeff_alph, coeff_alph, coeff_beta, coeff_beta)
+            )
+        eris += eri1
+        eris += eri1.T
+
+        naux = 3
+        thcz = numpy.zeros((naux, naux))
+        thcx = numpy.zeros((naux, nao))
+
+        h2e = {}
+        from itertools import product
+        for ss in product([("o", slice(0, nocc)), ("v", slice(nocc, norb))], repeat=1):
+            h2e["".join([s[0] for s in ss])] = thcx[*([slice(0, naux)] + [s[1] for s in ss])]
+
+        cc_obj = CoupledClusterProblem()
+        cc_obj.h1e = h1e
+        cc_obj.thcx = H2eBlocks()
+        cc_obj.thcx.__dict__.update(h2e)
+        cc_obj.thcz = thcz
+
+        from opt_einsum import contract, contract_path
+        from opt_einsum import shared_intermediates
+        def einsum(*args):
+            path, path_info = contract_path(*args, optimize='optimal')
+            self.log.write(str(path_info) + "\n\n")
+            return contract(*args)
+
+        cc_obj.einsum = einsum
+
+        global iter_cc
+        iter_cc = 0
+
+        from ccsd_with_thc import ecorr
+        from ccsd_with_thc import resd1
+        from ccsd_with_thc import resd2
+
+        def func(vec, verbose=True):
+            amp = self.vec_to_amp(vec)
+            with shared_intermediates():
+                ene = ecorr(cc_obj=cc_obj, amp=amp)
+                r1e = resd1(cc_obj=cc_obj, amp=amp)
+                r2e = resd2(cc_obj=cc_obj, amp=amp)
+            res = self.res_to_vec((r1e, r2e))
+
+            if verbose:
+                global iter_cc
+                iter_cc += 1
+
+                log.info(
+                    'CCSD iter %4d, energy = %12.8f, residual = %12.4e',
+                    iter_cc, ene, numpy.linalg.norm(res)
+                    )
+            
+            assert 1 == 2
+
+            return ene, res
+
+        return func
         
 if __name__ == "__main__":
     import numpy
@@ -239,7 +427,7 @@ if __name__ == "__main__":
         ['H', (0., 1., 0.)],
         ['H', (0., 0., 1.)],
     ]
-    mol.basis = 'sto3g'
+    mol.basis = 'ccpvdz'
     mol.build()
 
     mf = scf.GHF(mol)
@@ -247,22 +435,32 @@ if __name__ == "__main__":
     mf.scf()
 
     from cc import NewtonKrylov, FromPySCF
-    class Solver(FromPySCF, NewtonKrylov):
+    # class Solver(FromPySCF, NewtonKrylov):
+    #     pass
+
+    # s1 = Solver(mf)
+    # ecorr1 = s1.kernel()[0]
+
+    # class Solver(WithPhysERIs, NewtonKrylov):
+    #     pass
+
+    # s2 = Solver(mf)
+    # ecorr2 = s2.kernel()[0]
+    # assert abs(ecorr1 - ecorr2) < 1e-6
+
+    # class Solver(WithChemERIs, NewtonKrylov):
+    #     pass
+
+    # s3 = Solver(mf)
+    # ecorr3 = s3.kernel()[0]
+    # assert abs(ecorr1 - ecorr3) < 1e-6
+
+
+    class Solver(WithTensorHyperConraction, NewtonKrylov):
         pass
 
-    s1 = Solver(mf)
-    ecorr1 = s1.kernel()[0]
-
-    class Solver(WithPhysERIs, NewtonKrylov):
-        pass
-
-    s2 = Solver(mf)
-    ecorr2 = s2.kernel()[0]
-    assert abs(ecorr1 - ecorr2) < 1e-6
-
-    class Solver(WithChemERIs, NewtonKrylov):
-        pass
-
-    s3 = Solver(mf)
-    ecorr3 = s3.kernel()[0]
-    assert abs(ecorr1 - ecorr3) < 1e-6
+    with open("path.log", "w") as log:
+        s4 = Solver(mf)
+        s4.max_cycle = 1
+        s4.log = log
+        ecorr4 = s4.kernel()[0]
